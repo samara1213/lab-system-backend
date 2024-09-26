@@ -1,0 +1,132 @@
+creamos la entidad usuarios
+nest g res auth --no-spec
+
+instalamos el paquete de encriptacion
+
+yarn add bcrypt
+
+se instalan los typos
+
+yarn add -D @types/bcrypt
+
+jwt
+
+se instala 
+yarn add @nestjs/passport passport
+
+despues instalamos 
+@nestjs/jwt passport-jwt
+despues se instalan los typos
+yarn add -D @types/passport-jwt
+
+en en auth module
+se coloca en los import se coloca:
+
+PassportModule.register({ defaultStrategy: 'jwt'}),
+  JwtModule.registerAsync({
+    imports: [ConfigModule],
+    inject: [ConfigService],
+    useFactory: (configService: ConfigService) => {
+
+      return {
+        secret: configService.get('JWT_SECRET'),
+        signOptions: {
+          expiresIn: '2h'
+        }
+      }
+    }
+  }),
+
+generamos el jwt de la siguiente manera
+se implementa la estrategia:
+se crea una carpeta en auth que se llame 
+estrategies y despues un archivo llamado jwt.strategy.ts
+esta creaciones son manuales
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy) {
+
+    constructor(
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>,
+        configService: ConfigService
+    ) {
+        
+        super({
+            secretOrKey: configService.get('JWT_SECRET'),
+            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+        })
+    }
+
+    // si el token es valido consultamos el ussuario en la base de datos
+    async validate(payalod: JwtPayload): Promise<User> {
+
+        const { use_correo } = payalod;
+
+        const user = await  this.userRepository.findOneBy({ use_correo } );
+
+        if (!user) throw new UnauthorizedException('el token sumistrado es invalido')
+
+        if(user.use_estado !== 'ACTIVO') throw new UnauthorizedException('usuario no valido')
+
+        return user;
+
+    }
+} 
+
+
+se debe colocar en el auth modulo en la parte de providers el jwtStartegy
+
+
+se crea otra carpeta que se llama interfaces
+dentro un archivo que se llama 
+jwt-payload.interface.ts
+
+/**
+ * aca se coloca todo lo que se quiere grabar en el payload del token
+ */
+export interface JwtPayload {
+
+    use_id: string;
+
+    // TODO: agregar lo demas que se quiera
+ }
+
+
+crear decoradores personales
+
+creamoa la carpeta tambien manual decorators
+get-user.decorators.ts
+
+para crear gard
+nest g gu auth/guards/userRole --no-spec
+
+cuando se utilizan los guards personalizados se
+utilizan sin crear la instancia osea sin () 
+
+crear un custom decorator
+nest g d auth/decorators/roleProtected --no-spec
+
+documentacion
+https://docs.nestjs.com/custom-decorators#decorator-composition
+
+
+como proteger las rutas de otros modulos
+
+para hacer esto de tiene que ir a los modulos de los otros servicios
+e importar el AuthModule
+
+
+base de datos en postgres
+
+para que al despleguar la aplicacion a produccion
+se instale node en la version que estamos utilizando
+en el archivo
+package.json
+en la session de antes de script
+colocamos esto:
+"engine":{
+	"node":"17.x" --> esto es para que se instale cualquier version 17
+	}
+
+
+varibles de entorno en heroku

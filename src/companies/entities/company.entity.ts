@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { User } from "src/auth/entities/user.entity";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('companies')
 export class Company {
@@ -56,4 +57,10 @@ export class Company {
         nullable: true
     })
     com_usuario_modificacion: string;
+
+    @OneToMany(
+        () => User,
+        (user) =>  user.company
+    )
+    user: User;
 }
