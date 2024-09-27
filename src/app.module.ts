@@ -3,6 +3,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
+import { EmailsModule } from './emails/emails.module';
 
 @Module({
   imports: [ConfigModule.forRoot(),
@@ -17,7 +18,7 @@ import { AuthModule } from './auth/auth.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    CompaniesModule, AuthModule
+    CompaniesModule, AuthModule, EmailsModule
   ],
   controllers: [],
   providers: [],

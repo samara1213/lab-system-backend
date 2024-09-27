@@ -10,6 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
+import { EmailsService } from 'src/emails/emails.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailsService
   ) { }
 
   /**
@@ -34,15 +36,25 @@ export class AuthService {
        * agregamos la contraseña cifrada
        * aTf#t4#U5hHS
       */
+     // Obtenemos la contraseña
+     const password = this.handleGeneratePassword();
+
       const user = this.userRepository.create({
         ...createUserDto,
-        use_contrasena: bcrypt.hashSync(this.handleGeneratePassword(), 10),
+        use_contrasena: bcrypt.hashSync(password, 10),
       })
 
       // se guarda el usuario en la base de datos
       await this.userRepository.save(user);
 
+      // enviamos el correo de notificacion con la contraseña
+      await this.emailService.sendMailWelcome(
+                             user.use_correo, 
+                             `${user.use_primer_nombre} ${user.use_primer_apellido}`,
+                             password);
+
       return {
+        
         'message': 'usuario creado correctamente'
       }
 

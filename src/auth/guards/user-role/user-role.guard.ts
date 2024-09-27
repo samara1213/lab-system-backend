@@ -16,7 +16,7 @@ export class UserRoleGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     
     const validateRole: string[] = this.reflector.get(META_ROLES, context.getHandler())
-console.log(validateRole)
+
     if(!validateRole) return true;
     if(validateRole.length ===0 ) return true;
 
