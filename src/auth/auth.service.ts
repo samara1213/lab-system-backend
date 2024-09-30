@@ -79,16 +79,20 @@ export class AuthService {
     //y la contraseña
     const user = await this.userRepository.findOne({
       where: { use_correo },
-      select: { use_correo: true, use_contrasena: true, use_estado: true, use_id: true },
+      select: { use_correo: true, use_contrasena: true, use_estado: true, use_id: true},
+      relations:['company'],
     })
 
     // validamos que el ussuario exista
-    if (!user) throw new UnauthorizedException('El usuario o');
+    if (!user) throw new UnauthorizedException('El usuario o contraseña incorrecto');
 
     // si el usuariuo existe vaidamos la contraseña sea valida
     if (!bcrypt.compareSync(use_contrasena, user.use_contrasena)) throw new UnauthorizedException('El usuario o contraseña incorrecto');
 
-    if (user.use_estado !== 'ACTIVO') throw new UnauthorizedException('contraseña incorrecto');
+    if (user.use_estado !== 'ACTIVO') throw new UnauthorizedException('El usuario o contraseña incorrecto');
+
+    // eliminamos la contraseña de la respuesta
+    delete  user.use_contrasena;
 
     return {
 

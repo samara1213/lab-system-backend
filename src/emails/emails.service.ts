@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { templateEmailWelcom } from './templates/templates';
+import { templateEmailWelcom } from './templates/templateEmailWelcom';
 
 @Injectable()
 export class EmailsService {
