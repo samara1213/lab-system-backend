@@ -5,6 +5,9 @@ import { UpdateAuthDto } from './dto/update-auth.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto';
 import { Auth } from './decorators/auth.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { GetUser } from './decorators/get-user.decorator';
+import { User } from './entities/user.entity';
 
 
 
@@ -22,6 +25,18 @@ export class AuthController {
   login(@Body() loginUserDto: LoginUserDto) {
     return this.authService.login(loginUserDto);
   }
+
+  @Post('/changePassword')
+  changePassword(@Body() changePasswordDto: ChangePasswordDto) {
+    return this.authService.changePassword(changePasswordDto);
+  }
+
+  @Get('/refreshToken')
+  @Auth()
+  refresToken(@GetUser() user: User) {
+    return this.authService.refresToken(user);
+  }
+
 
 
   @Get()
