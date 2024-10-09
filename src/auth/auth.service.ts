@@ -118,7 +118,7 @@ export class AuthService {
       // consutamos el ususario si existe para verificar si la contraseña es valida
       const user = await this.userRepository.findOne({
         where: { use_correo },
-        select: { use_contrasena: true, use_id: true},
+        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true},
         relations: ['company']
       });
 
@@ -132,6 +132,8 @@ export class AuthService {
       const updateUser = await this.userRepository.preload({
         use_id: user.use_id,      
         use_contrasena: bcrypt.hashSync(use_new_contrasena, 10),
+        use_primer_ingreso: false,
+        
       });
 
       // guardamos los datos del ussuario
