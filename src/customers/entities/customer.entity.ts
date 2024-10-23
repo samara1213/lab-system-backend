@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('customers')
+@Unique(['cus_tipo_doc', 'cus_companie']) // Clave única compuesta
 export class Customer {
 
     @PrimaryGeneratedColumn('uuid')
@@ -12,8 +13,7 @@ export class Customer {
     cus_tipo_doc: string;
 
     @Column('text',{
-        nullable: false,
-        unique: true
+        nullable: false   
     })
     cus_numero_doc:  string;
 
