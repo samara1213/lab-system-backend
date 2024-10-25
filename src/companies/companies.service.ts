@@ -12,7 +12,7 @@ import { User } from 'src/auth/entities/user.entity';
 export class CompaniesService {
 
   // manejo de los log
-  private readonly logger = new Logger('FincService');
+  private readonly logger = new Logger('CompanyService');
 
   constructor(
     
