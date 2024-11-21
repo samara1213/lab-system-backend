@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { EmailsModule } from './emails/emails.module';
 import { CustomersModule } from './customers/customers.module';
+import { ExamsModule } from './exams/exams.module';
 
 
 @Module({
@@ -20,7 +21,7 @@ import { CustomersModule } from './customers/customers.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    CompaniesModule, AuthModule, EmailsModule, CustomersModule
+    CompaniesModule, AuthModule, EmailsModule, CustomersModule, ExamsModule, 
   ],
   controllers: [],
   providers: [],
