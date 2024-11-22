@@ -21,6 +21,16 @@ export class Exam {
     })
     exa_value: number;
 
+    @Column('bool',{
+        default: false
+    })
+    exa_convenius: boolean;
+
+    @Column('text',{
+        nullable: true
+    })
+    exa_convenius_name: string;
+
     @Column('text',{
         nullable: false
     })
