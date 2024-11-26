@@ -14,7 +14,7 @@ export class CreateExamDto {
 
     @IsNumber()
     @IsNotEmpty()
-    exa_value: number;
+    exa_price: number;
 
     @IsUUID()
     @IsNotEmpty()

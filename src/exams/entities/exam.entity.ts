@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { ParamsExam } from 'src/params_exams/entities/params_exam.entity';
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('exams')
 export class Exam {
@@ -19,7 +20,7 @@ export class Exam {
     @Column('decimal',{
         scale: 3
     })
-    exa_value: number;
+    exa_price: number;
 
     @Column('bool',{
         default: false
@@ -54,4 +55,10 @@ export class Exam {
         nullable: true
     })
     exa_user_modification: string;
+
+    @OneToMany(
+        () => ParamsExam,
+        (parm_exam) => parm_exam.exam
+    )
+    parm_exam: ParamsExam;
 }

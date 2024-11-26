@@ -2,14 +2,19 @@ import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/commo
 import { ParamsExamsService } from './params_exams.service';
 import { CreateParamsExamDto } from './dto/create-params_exam.dto';
 import { UpdateParamsExamDto } from './dto/update-params_exam.dto';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { User } from 'src/auth/entities/user.entity';
 
 @Controller('params-exams')
 export class ParamsExamsController {
   constructor(private readonly paramsExamsService: ParamsExamsService) {}
 
   @Post()
-  create(@Body() createParamsExamDto: CreateParamsExamDto) {
-    return this.paramsExamsService.create(createParamsExamDto);
+  @Auth()
+  create(@Body() createParamsExamDto: CreateParamsExamDto,
+         @GetUser() user: User) {
+    return this.paramsExamsService.create(createParamsExamDto, user);
   }
 
   @Get()
