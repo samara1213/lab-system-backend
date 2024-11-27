@@ -101,12 +101,16 @@ export class ExamsService {
 
       // se buscar el registro
       const exam = await this.examRepository.findOne({
-        where: { exa_id: id }        
+        where: { exa_id: id },
+        relations:['parm_exam']        
       });
 
       // validamos que el registro exista
       if (!exam) throw new BadRequestException('No se encuentra registro con este valor')
       
+      // filtrar por el estado del parametro
+      exam.parm_exam = exam.parm_exam.filter((paramExamen) => paramExamen.pae_state === 'ACTIVO');
+
       // se regresa en el atributo data los datos del examen
       return {
 

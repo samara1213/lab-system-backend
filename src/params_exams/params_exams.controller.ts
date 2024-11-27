@@ -16,24 +16,18 @@ export class ParamsExamsController {
          @GetUser() user: User) {
     return this.paramsExamsService.create(createParamsExamDto, user);
   }
-
-  @Get()
-  findAll() {
-    return this.paramsExamsService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.paramsExamsService.findOne(+id);
-  }
+  
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateParamsExamDto: UpdateParamsExamDto) {
-    return this.paramsExamsService.update(+id, updateParamsExamDto);
+  @Auth()
+  update(@Param('id') id: string, @Body() updateParamsExamDto: UpdateParamsExamDto,
+         @GetUser() user: User) {
+    return this.paramsExamsService.update(id, updateParamsExamDto, user);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.paramsExamsService.remove(+id);
+  @Auth()
+  remove(@Param('id') id: string, @GetUser() user: User) {
+    return this.paramsExamsService.remove(id, user);
   }
 }

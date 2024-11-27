@@ -18,6 +18,13 @@ export class ParamsExamsService {
 
   ){}
 
+  /**
+   * funcion que se encarga de realizar el registro de un 
+   * paramyro a un examen
+   * @param createParamsExamDto datos del parametro a asignar 
+   * @param user datos del ussuarioque  esta creando el registro
+   * @returns 
+   */
   async create(createParamsExamDto: CreateParamsExamDto, user: User) {
     
     try {
@@ -45,20 +52,72 @@ export class ParamsExamsService {
     }
   }
 
-  findAll() {
-    return `This action returns all paramsExams`;
-  }
 
-  findOne(id: number) {
-    return `This action returns a #${id} paramsExam`;
-  }
+  /**
+   * funcion que se encarga de realizar la actualizacion de un parametro
+   * registrado en la base de datos
+   * @param id id del parametros
+   * @param updateParamsExamDto datos a actualizar
+   * @param user datos del ususario que esta actualizando
+   * @returns 
+   */
+  async update(id: string, updateParamsExamDto: UpdateParamsExamDto, user: User) {
+   
+    try {
 
-  update(id: number, updateParamsExamDto: UpdateParamsExamDto) {
-    return `This action updates a #${id} paramsExam`;
-  }
+      // preparamos los datos a actualizar
+      const paramExam =  await this.paramsExamsRepository.preload({
+        pae_id: id,
+        ...updateParamsExamDto,
+        pae_user_modification: user.use_id
+      });
 
-  remove(id: number) {
-    return `This action removes a #${id} paramsExam`;
+      // guardamos en la base de datos el registro
+      await this.paramsExamsRepository.save(paramExam);
+
+      // se regresa la respuesta
+      return {
+
+        message: 'El parametro se actualizo correctamente'
+      }
+      
+    } catch (error) {
+      
+      this.handleExceptions(error);
+
+    }
+
+  }
+  
+
+  /**
+   * funcion que se encarga de eliminar un registro logicamente
+   * le coloca el estado en eliminado
+   * @param id del parametro a eliminar
+   */
+  async remove(id: string, user: User) {
+    
+    try {
+      
+      // preparamos el registro a eliminar
+      const paramExam = await this.paramsExamsRepository.preload({
+        pae_id: id,
+        pae_state: 'ELIMINADO',
+        pae_user_modification: user.use_id
+      })
+
+      // actualizamos el registro
+      await this.paramsExamsRepository.save(paramExam);
+
+      // se regresa la respuesta
+      return {
+
+        message: 'El parametro se elimino correctamente'
+      }
+    } catch (error) {
+      
+      this.handleExceptions(error);
+    }
   }
 
   /**

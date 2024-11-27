@@ -60,5 +60,5 @@ export class Exam {
         () => ParamsExam,
         (parm_exam) => parm_exam.exam
     )
-    parm_exam: ParamsExam;
+    parm_exam: ParamsExam[];
 }

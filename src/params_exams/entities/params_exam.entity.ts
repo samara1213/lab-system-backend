@@ -95,7 +95,7 @@ export class ParamsExam {
     @ManyToOne(
         () => Exam,
         (exam) => exam.parm_exam,
-        {eager: true}        
+        {eager: false}        
     )    
     exam: Exam;
 
