@@ -207,9 +207,7 @@ export class AuthService {
     const password = Array.from(crypto.randomBytes(12))
       .map(byte => chars[byte % chars.length])
       .join('');
-
-    console.log('contraseña' + password);
-
+          
     return password;
 
   }
