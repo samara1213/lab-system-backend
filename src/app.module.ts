@@ -7,6 +7,8 @@ import { EmailsModule } from './emails/emails.module';
 import { CustomersModule } from './customers/customers.module';
 import { ExamsModule } from './exams/exams.module';
 import { ParamsExamsModule } from './params_exams/params_exams.module';
+import { LaboratoryModule } from './laboratory/laboratory.module';
+import { MenuModule } from './menu/menu.module';
 
 
 @Module({
@@ -22,7 +24,7 @@ import { ParamsExamsModule } from './params_exams/params_exams.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    CompaniesModule, AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, 
+    CompaniesModule, AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, 
   ],
   controllers: [],
   providers: [],
