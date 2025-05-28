@@ -12,6 +12,8 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { EmailsService } from 'src/emails/emails.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from 'src/role/entities/role.entity';
+import { Laboratory } from 'src/laboratory/entities/laboratory.entity';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +23,9 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
-    private readonly emailService: EmailsService
+    private readonly emailService: EmailsService,
+    private readonly roleRepository: Repository<Role>,
+    private readonly laboratoryRepository: Repository<Laboratory>
   ) { }
 
   /**
@@ -40,9 +44,20 @@ export class AuthService {
       // Obtenemos la contraseña
       const password = this.handleGeneratePassword();
 
+      // Creamos la referencia al rol usando solo el id recibido
+      const role = this.roleRepository.create({
+        rol_id: createUserDto.role
+      });
+
+      // se crea la referencia al laboratorio usando solo el id recibido
+      const laboratory = this.laboratoryRepository.create({
+        lab_id: createUserDto.laboratory});
+
       const user = this.userRepository.create({
         ...createUserDto,
         use_contrasena: bcrypt.hashSync(password, 10),
+        role: role,
+        laboratory: laboratory,
       })
 
       // se guarda el usuario en la base de datos
@@ -54,9 +69,11 @@ export class AuthService {
         `${user.use_primer_nombre} ${user.use_primer_apellido}`,
         password);
 
+      // respuesta del rpoceso de creacion
       return {
+        status: 201,
+        message: 'El registro de usuario se ha creado correctamente',        
 
-        'message': 'usuario creado correctamente'
       }
 
     } catch (error) {
@@ -81,7 +98,13 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: { use_correo },
       select: { use_correo: true, use_contrasena: true, use_estado: true, use_primer_ingreso: true, use_id: true },
-      relations: ['company'],
+      relations: [
+        'laboratory',
+        'role',
+        'role.menus',
+        'role.menus.children',
+        'role.menus.children.children',
+      ],
     })
 
     // validamos que el ussuario exista
@@ -118,8 +141,7 @@ export class AuthService {
       // consutamos el ususario si existe para verificar si la contraseña es valida
       const user = await this.userRepository.findOne({
         where: { use_correo },
-        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true},
-        relations: ['company']
+        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true}  
       });
 
       // validamos si existe el ususario
@@ -140,8 +162,8 @@ export class AuthService {
       await this.userRepository.save(updateUser);
 
       return {
-
-        'message': 'Su cambio de contraseña fue exitoso'
+        status: 200,
+        message: 'La contraseña se ha cambiado correctamente',     
       }
 
     } catch (error) {

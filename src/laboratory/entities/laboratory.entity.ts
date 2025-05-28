@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { User } from '../../auth/entities/user.entity';
 
 @Entity('laboratories')
 export class Laboratory {
@@ -38,4 +39,7 @@ export class Laboratory {
 
     @UpdateDateColumn({ type: 'timestamp' })
     lab_updated_at: Date;
+
+    @OneToMany(() => User, (user) => user.laboratory)
+    users: User[];
 }
