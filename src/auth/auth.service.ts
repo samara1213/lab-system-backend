@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import * as crypto from 'crypto';
@@ -14,6 +14,7 @@ import { EmailsService } from 'src/emails/emails.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Role } from 'src/role/entities/role.entity';
 import { Laboratory } from 'src/laboratory/entities/laboratory.entity';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -184,22 +185,93 @@ export class AuthService {
       token: this.getJwtToken({ use_id: user.use_id }),
     };    
   }
+  
 
+  /**
+   * Lista todos los usuarios de un laboratorio por su id
+   * @param lab_id id del laboratorio
+   * @returns lista de usuarios
+   */
+  async findUsersByLaboratory(lab_id: string) {
 
-  findAll() {
-    return `This action returns all auth`;
+    try {
+      
+      // buscamos los ususarios por el id del laboratorio
+      const users = await this.userRepository.find({
+        where: { laboratory: { lab_id } },
+        });
+      
+      // regresamos la lista de usuarios
+      return {
+        status: 200,
+        data: users ?? [],
+      };
+    
+    } catch (error) {
+    
+      this.handleExceptions(error);
+    }
+  
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+  /**
+   * funcion que se encarga de actualizar un usuario
+   * @param id id del usuario a actualizar
+   * @param updateUserDto datos a actualizar
+   * @returns 
+   */
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    
+    try {
+      
+      // Si se envía un nuevo rol, creamos la referencia
+      let role = undefined;
+    
+      // validamos si se envio el rol para actualizarlo
+      if (updateUserDto.role) {
+        role = this.roleRepository.create({
+          rol_id: updateUserDto.role
+        });
+      }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+      // Si se envía un nuevo laboratorio, creamos la referencia
+      let laboratory = undefined;
+      if (updateUserDto.laboratory) {
+        laboratory = this.laboratoryRepository.create({
+          lab_id: updateUserDto.laboratory
+        });
+      }
+      // Preparamos el objeto a actualizar
+      const updateData: any = {
+        ...updateUserDto,
+      };
+
+      // Si se envió un nuevo rol o laboratorio, los agregamos al objeto de actualización
+      if (role) updateData.role = role;
+      if (laboratory) updateData.laboratory = laboratory;
+
+      // Preload busca el usuario y aplica los cambios
+      const user = await this.userRepository.preload({
+        use_id: id,
+        ...updateData,
+      });
+
+      // validamos si el ussuario existe
+      if (!user) throw new NotFoundException('El usuario no existe');
+      
+      // Guardamos los cambios en la base de datos
+      await this.userRepository.save(user);
+
+      // Retornamos una respuesta de éxito
+      return {
+        status: 200,
+        message: 'Usuario actualizado correctamente',
+      };
+
+    } catch (error) {
+      this.handleExceptions(error);
+    }
   }
 
 
@@ -247,4 +319,6 @@ export class AuthService {
     // error no encontrado
     throw new InternalServerErrorException('Error del sistema')
   }
+
+
 }

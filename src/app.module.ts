@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { CompaniesModule } from './companies/companies.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -10,6 +9,7 @@ import { ParamsExamsModule } from './params_exams/params_exams.module';
 import { LaboratoryModule } from './laboratory/laboratory.module';
 import { MenuModule } from './menu/menu.module';
 import { RoleModule } from './role/role.module';
+import { AllianceModule } from './alliance/alliance.module';
 
 
 @Module({
@@ -25,7 +25,7 @@ import { RoleModule } from './role/role.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    CompaniesModule, AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, 
+    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, 
   ],
   controllers: [],
   providers: [],

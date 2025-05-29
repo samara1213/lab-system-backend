@@ -1,6 +1,6 @@
-import { Laboratory } from "src/laboratory/entities/laboratory.entity";
+import { Laboratory } from "../../laboratory/entities/laboratory.entity";
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Role } from "src/role/entities/role.entity";
+import { Role } from "../../role/entities/role.entity";
 
 @Entity('usuarios')
 export class User {

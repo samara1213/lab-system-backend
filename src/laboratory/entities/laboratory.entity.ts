@@ -1,5 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
+import { Alliance } from '../../alliance/entities/alliance.entity';
+
 
 @Entity('laboratories')
 export class Laboratory {
@@ -42,4 +44,7 @@ export class Laboratory {
 
     @OneToMany(() => User, (user) => user.laboratory)
     users: User[];
+
+    @OneToMany(() => Alliance, (alliance) => alliance.laboratory)
+    alliances: Alliance[];
 }
