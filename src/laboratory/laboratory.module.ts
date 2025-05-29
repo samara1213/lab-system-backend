@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LaboratoryService } from './laboratory.service';
 import { LaboratoryController } from './laboratory.controller';
@@ -7,7 +7,7 @@ import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Laboratory]),
-            AuthModule],
+            forwardRef(() => AuthModule)],
   controllers: [LaboratoryController],
   providers: [LaboratoryService],
   exports: [TypeOrmModule],

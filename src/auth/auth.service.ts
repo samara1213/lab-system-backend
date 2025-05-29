@@ -25,7 +25,9 @@ export class AuthService {
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailsService,
+    @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    @InjectRepository(Laboratory)
     private readonly laboratoryRepository: Repository<Laboratory>
   ) { }
 
@@ -185,7 +187,7 @@ export class AuthService {
       token: this.getJwtToken({ use_id: user.use_id }),
     };    
   }
-  
+
 
   /**
    * Lista todos los usuarios de un laboratorio por su id
