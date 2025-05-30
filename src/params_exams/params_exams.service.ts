@@ -4,7 +4,9 @@ import { UpdateParamsExamDto } from './dto/update-params_exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ParamsExam } from './entities/params_exam.entity';
 import { Repository } from 'typeorm';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '../auth/entities/user.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { stat } from 'fs';
 
 @Injectable()
 export class ParamsExamsService {
@@ -14,7 +16,10 @@ export class ParamsExamsService {
   constructor(
 
     @InjectRepository(ParamsExam)
-    private readonly paramsExamsRepository: Repository<ParamsExam>   
+    private readonly paramsExamsRepository: Repository<ParamsExam>,
+    
+    @InjectRepository(Exam)
+    private readonly examRepository: Repository<Exam>
 
   ){}
 
@@ -22,33 +27,33 @@ export class ParamsExamsService {
    * funcion que se encarga de realizar el registro de un 
    * paramyro a un examen
    * @param createParamsExamDto datos del parametro a asignar 
-   * @param user datos del ussuarioque  esta creando el registro
    * @returns 
    */
-  async create(createParamsExamDto: CreateParamsExamDto, user: User) {
-    
+  async create(createParamsExamDto: CreateParamsExamDto) {
+
     try {
 
-      // se prepara el objecto a guardar
-      const paramExam = this.paramsExamsRepository.create(createParamsExamDto);
-
-      // guardanos el objecto en la base de datos
-      await this.paramsExamsRepository.save({
-        ...paramExam,
-        exam:{ exa_id: createParamsExamDto.pae_exam_id },
-        pae_user_creation: user.use_id
+      // Buscar el examen asociado
+      const exam = this.examRepository.create({ exa_id: createParamsExamDto.exam });
+      
+      // Se prepara el objeto a guardar con los nuevos nombres de campos
+      const paramExam = this.paramsExamsRepository.create({
+        ...createParamsExamDto,
+        exam,
       });
 
-      // se regresa la respuesta
-      return {
+      // Guardamos el objeto en la base de datos
+      await this.paramsExamsRepository.save(paramExam);
 
-        message: 'El parametro ingresado se creo correctamente'
-      }
-      
+      // Se regresa la respuesta
+      return {
+        status: 201,
+        message: 'El parametro para el examen se ha creado correctamente',
+      };
+
     } catch (error) {
 
       this.handleExceptions(error);
-      
     }
   }
 
@@ -58,67 +63,41 @@ export class ParamsExamsService {
    * registrado en la base de datos
    * @param id id del parametros
    * @param updateParamsExamDto datos a actualizar
-   * @param user datos del ususario que esta actualizando
    * @returns 
    */
-  async update(id: string, updateParamsExamDto: UpdateParamsExamDto, user: User) {
-   
-    try {
-
-      // preparamos los datos a actualizar
-      const paramExam =  await this.paramsExamsRepository.preload({
-        pae_id: id,
-        ...updateParamsExamDto,
-        pae_user_modification: user.use_id
-      });
-
-      // guardamos en la base de datos el registro
-      await this.paramsExamsRepository.save(paramExam);
-
-      // se regresa la respuesta
-      return {
-
-        message: 'El parametro se actualizo correctamente'
-      }
-      
-    } catch (error) {
-      
-      this.handleExceptions(error);
-
-    }
-
-  }
-  
-
-  /**
-   * funcion que se encarga de eliminar un registro logicamente
-   * le coloca el estado en eliminado
-   * @param id del parametro a eliminar
-   */
-  async remove(id: string, user: User) {
+  async update(id: string, updateParamsExamDto: UpdateParamsExamDto) {
     
     try {
-      
-      // preparamos el registro a eliminar
-      const paramExam = await this.paramsExamsRepository.preload({
-        pae_id: id,
-        pae_state: 'ELIMINADO',
-        pae_user_modification: user.use_id
-      })
 
-      // actualizamos el registro
+      // verificamos si el id del examen es valido
+      const exam = this.examRepository.create({ exa_id: updateParamsExamDto.exam });
+
+      // Preparamos los datos a actualizar usando los nombres correctos
+      const paramExam = await this.paramsExamsRepository.preload({
+        par_id: id,
+        ...updateParamsExamDto,
+        exam,
+      
+      });
+
+      if (!paramExam) throw new BadRequestException('Parámetro no valido con los datos enviados');
+
+      // Guardamos en la base de datos el registro
       await this.paramsExamsRepository.save(paramExam);
 
-      // se regresa la respuesta
+      // Se regresa la respuesta
       return {
+        status: 200,
+        message: 'El registro del parametro se ha actualizado correctamente',
+      };
 
-        message: 'El parametro se elimino correctamente'
-      }
     } catch (error) {
-      
+
       this.handleExceptions(error);
+
     }
-  }
+  } 
+
 
   /**
   * Metodo que se encarga de validar cualquier  tipo de error 

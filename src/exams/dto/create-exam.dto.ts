@@ -1,31 +1,25 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsNotEmpty, IsString, MaxLength, IsNumber, IsUUID, IsOptional } from "class-validator";
 
 export class CreateExamDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  exa_name: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(50)
-    exa_name: string;
+  @IsString()
+  @IsOptional()
+  @MaxLength(250)
+  exa_description?: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(250)
-    exa_description: string;
+  @IsNumber()
+  @IsNotEmpty()
+  exa_price: number;
 
-    @IsNumber()
-    @IsNotEmpty()
-    exa_price: number;
+  @IsUUID()
+  @IsNotEmpty()
+  laboratory: string;
 
-    @IsUUID()
-    @IsNotEmpty()
-    exa_companie: string;
-
-    @IsOptional()
-    @IsBoolean()  
-    exa_convenius?: boolean;
-
-    @IsOptional()
-    @IsString()
-    exa_convenius_name?: string;
-
+  @IsUUID()
+  @IsOptional()
+  alliance?: string;
 }

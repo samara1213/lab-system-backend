@@ -1,103 +1,89 @@
-import { Exam } from 'src/exams/entities/exam.entity';
+import { Exam } from '../../exams/entities/exam.entity';
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('params_exams')
+@Entity('exams_parameters')
 export class ParamsExam {
 
     @PrimaryGeneratedColumn('uuid')
-    pae_id: string;
+    par_id: string;
 
-    @Column('text',{
+    @Column('text', {
         nullable: false
     })
-    pae_name: string;
+    par_name: string;
 
-    @Column('text',{
+    @Column('text', {
         nullable: false
     })
-    pae_default_value: string;
+    par_default_value: string;
 
-    @Column('bool',{
+    @Column('bool', {
         default: false
     })
-    pae_range: boolean;
+    par_range: boolean;
 
-    @Column('text',{
+    @Column('text', {
         nullable: false
     })
-    pae_unit_extent: string;
+    par_unit_extent: string;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_min_mam: number;
+    par_min_man: number;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_max_mam: number;
+    par_max_man: number;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_min_woman: number;
+    par_min_woman: number;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_max_womam: number;
+    par_max_woman: number;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_min_child: number;
+    par_min_child: number;
 
-    @Column('decimal',{
+    @Column('decimal', {
         scale: 3,
         nullable: true
 
     })
-    pae_max_child: number;
+    par_max_child: number;
 
     @CreateDateColumn({
         type: 'timestamp'
     })
-    pae_creation_date: Date;
-
-    @Column('text')
-    pae_user_creation: string;
-
+    par_creation_date: Date;
+    
     @UpdateDateColumn({
         type: 'timestamp'
     })
-    pae_modification_date: Date;
+    par_modification_date: Date;
 
-    @Column('text',{
-        nullable: true        
-    })
-    pae_user_modification: string;
-
-    @Column('text',{   
+    @Column('text', {   
         default: 'ACTIVO'        
     })
-    pae_state: string;
+    par_state: string;
 
-    @ManyToOne(
-        () => Exam,
-        (exam) => exam.parm_exam,
-        {eager: false}        
-    )    
+    @ManyToOne(() => Exam, { nullable: false })
     exam: Exam;
-
-
 }

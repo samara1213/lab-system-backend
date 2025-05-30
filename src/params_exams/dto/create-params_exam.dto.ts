@@ -1,50 +1,47 @@
 import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 
 export class CreateParamsExamDto {
-    
     @IsString()
     @IsNotEmpty()
-    @MinLength(10)
+    @MinLength(3)
     @MaxLength(50)
-    pae_name: string;
+    par_name: string;
 
     @IsNotEmpty()
-    pae_default_value: string;
+    par_default_value: string;
     
     @IsBoolean()
-    pae_range: boolean;
+    par_range: boolean;
     
     @IsString()
     @IsNotEmpty()
-    pae_unit_extent: string;
+    par_unit_extent: string;
     
     @IsNumber()
     @IsOptional()
-    pae_min_mam?: number;
+    par_min_man?: number;
     
     @IsNumber()
     @IsOptional()
-    pae_max_mam?: number;
+    par_max_man?: number;
     
     @IsNumber()
     @IsOptional()
-    pae_min_woman?: number;
+    par_min_woman?: number;
     
     @IsNumber()
     @IsOptional()
-    pae_max_womam?: number;
+    par_max_woman?: number;
     
     @IsNumber()
     @IsOptional()
-    pae_min_child?: number;
+    par_min_child?: number;
     
     @IsNumber()
     @IsOptional()
-    pae_max_child?: number;
+    par_max_child?: number;
 
     @IsUUID()
     @IsNotEmpty()
-    pae_exam_id: string;
- 
-
+    exam: string;
 }

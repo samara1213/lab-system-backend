@@ -1,64 +1,36 @@
-import { ParamsExam } from 'src/params_exams/entities/params_exam.entity';
-import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Laboratory } from '../../laboratory/entities/laboratory.entity';
+import { Alliance } from '../../alliance/entities/alliance.entity';
+import { ParamsExam } from '../../params_exams/entities/params_exam.entity';
 
 @Entity('exams')
 export class Exam {
 
-    @PrimaryGeneratedColumn('uuid')
-    exa_id: string;
+  @PrimaryGeneratedColumn('uuid')
+  exa_id: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    exa_name: string;
+  @Column('text')
+  exa_name: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    exa_description: string;
+  @Column('text', { nullable: true })
+  exa_description: string;
 
-    @Column('decimal',{
-        scale: 3
-    })
-    exa_price: number;
+  @Column('decimal', { precision: 10, scale: 2 })
+  exa_price: number;
 
-    @Column('bool',{
-        default: false
-    })
-    exa_convenius: boolean;
+  @CreateDateColumn({ type: 'timestamp' })
+  exa_created: Date;
 
-    @Column('text',{
-        nullable: true
-    })
-    exa_convenius_name: string;
+  @UpdateDateColumn({ type: 'timestamp' })
+  exa_updated: Date;
 
-    @Column('text',{
-        nullable: false
-    })
-    @Index()
-    exa_companie: string
+  @ManyToOne(() => Laboratory, (laboratory) => laboratory.exams)
+  @Index()
+  laboratory: Laboratory;
 
-    @CreateDateColumn({
-        type: 'timestamp'
-    })
-    exa_creation_date: Date;
+  @ManyToOne(() => Alliance, { nullable: true })
+  alliance: Alliance;
 
-    @Column('text')
-    exa_user_creation: string;
-
-    @UpdateDateColumn({
-        type: 'timestamp'
-    })
-    exa_modification_date: Date;
-
-    @Column('text',{
-        nullable: true
-    })
-    exa_user_modification: string;
-
-    @OneToMany(
-        () => ParamsExam,
-        (parm_exam) => parm_exam.exam
-    )
-    parm_exam: ParamsExam[];
+  @OneToMany(() => ParamsExam, (paramExam) => paramExam.exam)
+  parameters: ParamsExam[];
 }

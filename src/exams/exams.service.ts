@@ -4,7 +4,8 @@ import { UpdateExamDto } from './dto/update-exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Exam } from './entities/exam.entity';
 import { Repository } from 'typeorm';
-import { User } from 'src/auth/entities/user.entity';
+import { Laboratory } from '../laboratory/entities/laboratory.entity';
+import { Alliance } from '../alliance/entities/alliance.entity';
 
 @Injectable()
 export class ExamsService {
@@ -14,8 +15,13 @@ export class ExamsService {
   constructor(
 
     @InjectRepository(Exam)
+    private readonly examRepository: Repository<Exam>,
 
-    private readonly examRepository: Repository<Exam>
+    @InjectRepository(Laboratory)
+    private readonly laboratoryRepository: Repository<Laboratory>,
+
+    @InjectRepository(Alliance)
+    private readonly allianceRepository: Repository<Alliance>,
 
   ) {}
 
@@ -23,26 +29,40 @@ export class ExamsService {
   /**
    * funcion que se encarga de realizar el guardado  de un examen en la base de datos
    * @param createExamDto  datos del examen
-   * @param user datos de ususario que esta creando el examen
    */
-  async create(createExamDto: CreateExamDto, user: User) {
+  async create(createExamDto: CreateExamDto) {
 
     try {
 
-      // preparamos el onjecto a guardar
-      const exam = this.examRepository.create(createExamDto);
+      // creamos la instancia del laboratorio
+      const laboratory = this.laboratoryRepository.create({
+                         lab_id: createExamDto.laboratory});
 
-      // se guarda el registro en la base de datos
-      await this.examRepository.save({
-        ...exam,
-        exa_user_creation: user.use_id
+      // verificamos si se envio un convenio
+      let alliance: Alliance = null;
+      if (createExamDto.alliance) {
+
+        // creamos la instancia del convenio
+        alliance = this.allianceRepository.create({
+          ali_id: createExamDto.alliance
+        });
+
+      }
+
+      // preparamos el objecto a guardar
+      const exam = this.examRepository.create({
+        ...createExamDto,
+        laboratory,
+        alliance
       });
 
-      // se regres ala respuesta
+      // se guarda el registro en la base de datos
+      await this.examRepository.save(exam);
+
+      // regresamos la respuesta
       return {
-
-        message: 'El registro de examen creado exitosamente'
-
+        status: 201,     
+        message: 'El registro de examen se ha creado correctamente',
       }
 
 
@@ -58,35 +78,52 @@ export class ExamsService {
    * funcion que se encarga de realizar la actualizacion d elos datos de un examen
    * @param id  identoficacion de examen a buscar
    * @param updateExamDto  datos a actualizar
-   * @param user datos de ususario que lo actualizo
    * @returns respuesta del proceso
    */
-  async update(id: string, updateExamDto: UpdateExamDto, user: User) {
+  async update(id: string, updateExamDto: UpdateExamDto) {
 
     try {
-      
-      // preparamos el objejcto examen a guardar
-      const exam =  await this.examRepository.preload({
+
+      let laboratory: Laboratory = null;
+      // Si se envía laboratory, actualizamos la relación
+      if (updateExamDto.laboratory) {
+        
+         laboratory = this.laboratoryRepository.create({ lab_id: updateExamDto.laboratory });
+      }
+
+      // inicalizamos la variable de convenio
+      let alliance: Alliance = null;
+
+      // validamos si se envio y se retiro
+      if (updateExamDto.alliance) {
+
+        alliance = this.allianceRepository.create({ ali_id: updateExamDto.alliance });
+      }
+
+      // Preload busca y prepara la entidad para actualizar
+      const exam = await this.examRepository.preload({
         exa_id: id,
         ...updateExamDto,
-        exa_user_modification: user.use_id
-      });
+        laboratory,
+        alliance});
+      
+      // Si no se encuentra el examen, lanzamos una excepción
+      if (!exam) {
+        throw new BadRequestException('No se encuentra registro con este valor'); 
+      }
 
-      // guardamos la actualizacion en la base de datos
+      // Guardamos la actualización en la base de datos
       await this.examRepository.save(exam);
 
       return {
-
-        message: 'El registro de examen se actualizo'
-
-      }
+        status: 200,
+        message: 'El registro de examen se ha actualizado correctamente',
+      };
 
     } catch (error) {
-      
+
       this.handleExceptions(error);
-
-    } 
-
+    }
   }
 
 
@@ -96,62 +133,50 @@ export class ExamsService {
    * @returns datos del examen
    */
   async findOne(id: string) {
-    
+
     try {
 
-      // se buscar el registro
+      // se busca el registro
       const exam = await this.examRepository.findOne({
         where: { exa_id: id },
-        relations:['parm_exam']        
+        relations: ['laboratory', 'alliance', 'parameters'],
       });
 
       // validamos que el registro exista
-      if (!exam) throw new BadRequestException('No se encuentra registro con este valor')
-      
-      // filtrar por el estado del parametro
-      exam.parm_exam = exam.parm_exam.filter((paramExamen) => paramExamen.pae_state === 'ACTIVO');
+      if (!exam) throw new BadRequestException('No se encuentra registro con este valor');
 
       // se regresa en el atributo data los datos del examen
       return {
-
+        status: 200,
         data: exam
-      }
-
+      };
     } catch (error) {
-      
       this.handleExceptions(error);
     }
   }
 
-
   /**
-   * funcion que se encarga de obtner todos los registros de examnes
-   * de una empresa
-   * @param idCompany id de la empresa 
-   * @returns listado de examenes
+   * función que obtiene todos los exámenes de un laboratorio
+   * @param laboratoryId id del laboratorio
+   * @returns listado de exámenes
    */
-  async findAllByCompany(idCompany: string) {
-    
-    try {
+  async findAllByLaboratory(laboratoryId: string) {
 
-      // obtenemos el listado de examenes para las empresa
-      const array_exams =  await this.examRepository.find({
-        where: {exa_companie: idCompany}
+    try {
+      const exams = await this.examRepository.find({
+        where: { laboratory: { lab_id: laboratoryId } },
+        relations: ['alliance', 'parameters']
       });
 
-      // regresamos el arreglo de examenes
       return {
+        status: 200,
+        data: exams || []
+      };
 
-        data: array_exams ? array_exams : []
-      
-      }
-      
     } catch (error) {
-      
+
       this.handleExceptions(error);
-
     }
-
   }
 
 

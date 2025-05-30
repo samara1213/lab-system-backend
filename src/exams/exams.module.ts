@@ -3,11 +3,17 @@ import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Exam } from './entities/exam.entity';
-import { AuthModule } from 'src/auth/auth.module';
+import { AuthModule } from '../auth/auth.module';
+import { LaboratoryModule } from '../laboratory/laboratory.module';
+import { AllianceModule } from '../alliance/alliance.module';
+import { ParamsExam } from '../params_exams/entities/params_exam.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Exam]),
-            AuthModule
+            AuthModule,
+            LaboratoryModule,
+            AllianceModule,
+            ParamsExam
            ],
   controllers: [ExamsController],
   providers: [ExamsService],
