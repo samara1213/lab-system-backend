@@ -92,7 +92,6 @@ export class AuthService {
    * @returns 
    */
   async login(loginUserDto: LoginUserDto) {
-
     // se desectrura el correo y contraseña
     const { use_correo, use_contrasena } = loginUserDto;
 
@@ -121,11 +120,14 @@ export class AuthService {
     // eliminamos la contraseña de la respuesta
     delete user.use_contrasena;
 
+    // --- Agrupar menús en estructura jerárquica ---
+    if (user.role && Array.isArray(user.role.menus)) {
+      user.role.menus = this.buildMenuTree(user.role.menus);
+    }
+    // --- Fin agrupación menús ---
     return {
-
       data: { ...user },
       token: this.getJwtToken({ use_id: user.use_id }),
-
     }
   }
 
@@ -322,5 +324,22 @@ export class AuthService {
     throw new InternalServerErrorException('Error del sistema')
   }
 
+  // Utilidad para construir el árbol de menús jerárquico
+  private buildMenuTree(menus: any[]): any[] {
+    const menuMap = new Map();
+    menus.forEach(menu => {
+      menu.children = menu.children || [];
+      menuMap.set(menu.men_id, menu);
+    });
+    const tree = [];
+    menus.forEach(menu => {
+      if (menu.men_parent && menuMap.has(menu.men_parent.men_id)) {
+        menuMap.get(menu.men_parent.men_id).children.push(menu);
+      } else if (menu.men_level === 1) {
+        tree.push(menu);
+      }
+    });
+    return tree;
+  }
 
 }

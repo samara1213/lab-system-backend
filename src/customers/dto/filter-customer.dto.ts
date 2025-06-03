@@ -1,12 +1,11 @@
 import { IsNotEmpty, IsString, IsUUID } from "class-validator";
 
 export class FilterCustomerDto {
-
     @IsUUID()
     @IsNotEmpty()
-    cus_companie: string;
+    laboratory: string;
 
     @IsString()
     @IsNotEmpty()
-    cus_numero_doc: string
+    cus_document_number: string;
 }

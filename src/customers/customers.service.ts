@@ -4,8 +4,9 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Repository } from 'typeorm';
 import { Customer } from './entities/customer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '../auth/entities/user.entity';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
+
 
 @Injectable()
 export class CustomersService {
@@ -26,32 +27,27 @@ export class CustomersService {
    * @param createCustomerDto 
    * @returns 
    */
-  async create(createCustomerDto: CreateCustomerDto, user: User) {
-    
+  async create(createCustomerDto: CreateCustomerDto) {
+
     try {
-      
-      // preparamos la data a insertar del nuevo cliente
-      const customer = this.customerRepository.create(createCustomerDto);
-      
-      // realizamos la persistencia en la base de datos
-      await this.customerRepository.save({
-        ...customer,
-        cus_usuario_creacion: user.use_id
-      })
-
+    
+      // Asignar la relación con laboratorio usando el id recibido
+      const customer = this.customerRepository.create({
+        ...createCustomerDto,
+        laboratory: { lab_id: createCustomerDto.laboratory }
+      });
+    
+      // Guardar el cliente en la base de datos
+      await this.customerRepository.save(customer);
+    
       return {
-
-        message: 'El registro del cliente fue exitoso'
-        
-      }
-      
-      
+        status: 201,
+        message: 'El cliente se ha creado correctamente',
+      };
+    
     } catch (error) {
-
       this.handleExceptions(error);
-      
     }
-
   }
 
   /**
@@ -65,15 +61,14 @@ export class CustomersService {
 
       // se obtienen los registros de la  base de datos
       const arrayCustomers = await this.customerRepository.find({
-        where: { cus_companie: idCompany}
+        where: { laboratory: { lab_id: idCompany } },
       }); 
 
       // s eregresa la dato delos regsitros para la empresa
       return {
+        status: 200,
         data: arrayCustomers ? arrayCustomers : []
       }
-
-
       
     } catch (error) {
       
@@ -91,17 +86,19 @@ export class CustomersService {
     
     try {
 
-      // consutamos el registro en la base de datos
-      const customer =  await this.customerRepository.findOne({
-        where: { cus_companie: filterCustomerDto.cus_companie, 
-                 cus_numero_doc: filterCustomerDto.cus_numero_doc}
+      // Consultamos el registro en la base de datos usando los nuevos nombres
+      const customer = await this.customerRepository.findOne({
+        where: {
+          laboratory: { lab_id: filterCustomerDto.laboratory },
+          cus_document_number: filterCustomerDto.cus_document_number
+        }
       });
       
-      // regresamo el rregsitro encoentrado 
-      if (!customer) throw new BadRequestException('EL cliente no se encuentra registrado');
+      // regresamos el registro encontrado
+      if (!customer) throw new BadRequestException('El cliente no se encuentra registrado');
 
-      // se regresa los datos encoentrados
       return {
+        status: 200,
         data: customer
       }
 
@@ -120,26 +117,31 @@ export class CustomersService {
    * @param user datos d el ususario logueado
    * @returns mensaje de respuesta del proceso
    */
-  async update(id: string, updateCustomerDto: UpdateCustomerDto, user: User) {
+  async update(id: string, updateCustomerDto: UpdateCustomerDto) {
 
     try {
 
       // precargamos los datos del usuario a actualizar
+      let laboratory = undefined;
+
+      if (updateCustomerDto.laboratory) {
+        laboratory = { lab_id: updateCustomerDto.laboratory };
+      }
+
       const customer = await this.customerRepository.preload({
-        
-        cus_id:  id,
+        cus_id: id,
         ...updateCustomerDto,
-        cus_usuario_modificacion: user.use_id
+        ...(laboratory && { laboratory })
       });
 
-      // realizamos la persistencia en la base de datos
-      this.customerRepository.save(customer);
+      if (!customer) throw new BadRequestException('No existe cliente para este id');
+
+      await this.customerRepository.save(customer);
 
       return {
-
-        message: 'Se actualizo el cliente correctamente'
-        
-      }
+        status: 200,
+        message: 'Se actualizó el cliente correctamente',
+      };
       
     } catch (error) {
       
@@ -152,9 +154,7 @@ export class CustomersService {
    * Metodo que se encarga de validar cualquier  tipo de error 
    * @param error generado
    */
-    private handleExceptions(error: any) {
-
-      console.log(error);
+    private handleExceptions(error: any) { 
       
       if (23505 === +error.code) throw new BadRequestException(' Ya existe registro del cliente para esta empresa');
       
