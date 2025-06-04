@@ -1,5 +1,6 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 import { Laboratory } from '../../laboratory/entities/laboratory.entity';
+import { Order } from '../../orders/entities/order.entity';
 
 @Entity('customers')
 @Unique(['cus_document_number', 'laboratory'])
@@ -50,4 +51,7 @@ export class Customer {
     @ManyToOne(() => Laboratory, (laboratory) => laboratory.customers, { nullable: false })
     @Index()
     laboratory: Laboratory;
+
+    @OneToMany(() => Order, (order) => order.customer)
+    orders: Order[];
 }

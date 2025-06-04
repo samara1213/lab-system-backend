@@ -3,7 +3,7 @@ import { User } from '../../auth/entities/user.entity';
 import { Alliance } from '../../alliance/entities/alliance.entity';
 import { Exam } from '../../exams/entities/exam.entity';
 import { Customer } from '../../customers/entities/customer.entity';
-
+import { Order } from '../../orders/entities/order.entity';
 
 @Entity('laboratories')
 export class Laboratory {
@@ -55,4 +55,7 @@ export class Laboratory {
     
     @OneToMany(() => Customer, (customer) => customer.laboratory)
     customers: Customer[];
+
+    @OneToMany(() => Order, (order) => order.laboratory)
+    orders: Order[];
 }

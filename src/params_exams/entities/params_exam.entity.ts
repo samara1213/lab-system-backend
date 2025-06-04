@@ -69,6 +69,9 @@ export class ParamsExam {
     })
     par_max_child: number;
 
+    @Column('text', { nullable: true })
+    par_reference_value: string;
+
     @CreateDateColumn({
         type: 'timestamp'
     })

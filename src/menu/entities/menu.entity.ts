@@ -20,4 +20,10 @@ export class Menu {
 
     @ManyToMany(() => Role, (role) => role.menus)
     roles: Role[];
+
+    @Column('text', { nullable: true })
+    men_url: string;
+
+    @Column('text', { nullable: true })
+    men_icon: string;
 }

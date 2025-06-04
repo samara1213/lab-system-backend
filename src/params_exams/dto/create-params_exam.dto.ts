@@ -41,6 +41,10 @@ export class CreateParamsExamDto {
     @IsOptional()
     par_max_child?: number;
 
+    @IsOptional()
+    @IsString()
+    par_reference_value?: string;
+
     @IsUUID()
     @IsNotEmpty()
     exam: string;

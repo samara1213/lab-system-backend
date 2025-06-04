@@ -1,7 +1,8 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Laboratory } from '../../laboratory/entities/laboratory.entity';
 import { Alliance } from '../../alliance/entities/alliance.entity';
 import { ParamsExam } from '../../params_exams/entities/params_exam.entity';
+import { Order } from '../../orders/entities/order.entity';
 
 @Entity('exams')
 export class Exam {
@@ -33,4 +34,7 @@ export class Exam {
 
   @OneToMany(() => ParamsExam, (paramExam) => paramExam.exam)
   parameters: ParamsExam[];
+
+  @ManyToMany(() => Order, (order) => order.exams)
+  orders: Order[];
 }
