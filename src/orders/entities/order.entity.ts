@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Generated, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Generated, ManyToOne, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 import { Laboratory } from '../../laboratory/entities/laboratory.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Exam } from '../../exams/entities/exam.entity';
+import { Result } from '../../results/entities/result.entity';
 
 @Entity('orders')
 export class Order {
@@ -44,4 +45,10 @@ export class Order {
     inverseJoinColumn: { name: 'exa_id', referencedColumnName: 'exa_id' }
   })
   exams: Exam[];
+
+  @OneToMany(() => Result, (result) => result.order)
+  results: Result[];
+
+  @Column('text', { nullable: true })
+  ord_pdf_url: string;
 }

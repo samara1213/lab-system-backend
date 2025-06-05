@@ -100,6 +100,25 @@ export class ParamsExamsService {
 
 
   /**
+   * Lista los parámetros de un examen por su ID
+   * @param exa_id - ID del examen
+   * @returns Lista de parámetros asociados al examen
+   */
+  async findByExamId(exa_id: string) {
+    try {
+      const params = await this.paramsExamsRepository.find({
+        where: { exam: { exa_id } },
+      });
+      return {
+        status: 200,
+        data: params ?? [],
+      };
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
   * Metodo que se encarga de validar cualquier  tipo de error 
   * @param error generado
   */

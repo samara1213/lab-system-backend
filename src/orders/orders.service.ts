@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
 import { FilterOrderDto } from './dto/filter-order.dto';
+import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
 
 
 @Injectable()
@@ -72,8 +73,12 @@ export class OrdersService {
     
       const order = await this.orderRepository.findOne({
         where: { ord_id: id },
-        relations: ['laboratory', 'customer', 'exams'],
-    
+        relations: [
+          'laboratory',
+          'customer',
+          'exams',
+          'exams.parameters'
+        ],
       });
     
       if (!order) {
@@ -306,7 +311,7 @@ export class OrdersService {
   */
   private handleDBError(error: any): never { 
    
-  
+      console.log(error);
       if (error.code === '23505') {
   
         throw new ConflictException('En este momento no se puede procesar la solicitud, por favor intente más tarde');
@@ -314,5 +319,40 @@ export class OrdersService {
   
       throw new InternalServerErrorException('Error al procesar la solicitud, por favor intente más tarde');
     }
+
+  /**
+   * Busca una orden por su ID y retorna la orden junto con los resultados asociados,
+   * estructurando los resultados dentro de los parámetros de cada examen.
+   * @param ord_id - ID de la orden
+   * @returns Orden con exámenes, parámetros y resultados jerarquizados
+   */
+  async findOrderWithResults(ord_id: string) {
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { ord_id },
+        relations: [
+          'laboratory',
+          'customer',
+          'exams',
+          'exams.parameters',
+          'results',
+          'results.exam',
+          'results.param',
+        ],
+      });
+      if (!order) {
+        throw new NotFoundException('No existe registro con estos datos');
+      }
+      // Usar helper para estructurar la respuesta
+      const data = buildOrderResultsHierarchy(order);
+      
+      return {
+        status: 200,
+        data,
+      };
+    } catch (error) {
+      this.handleDBError(error);
+    }
+  }
   
 }

@@ -51,6 +51,7 @@ describe('ParamsExamsService', () => {
         par_max_woman: 9,
         par_min_child: 0.5,
         par_max_child: 8,
+        par_reference_value: '70-110 mg/dL', // Nuevo parámetro opcional
         exam: 'exam-uuid',
       };
       const exam = { exa_id: 'exam-uuid' } as Exam;
@@ -77,6 +78,7 @@ describe('ParamsExamsService', () => {
         par_max_woman: 11,
         par_min_child: 1,
         par_max_child: 9,
+        par_reference_value: '80-120 g/L', // Nuevo parámetro opcional
         exam: 'exam-uuid',
       };
       const exam = { exa_id: 'exam-uuid' } as Exam;

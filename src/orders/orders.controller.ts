@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Post, Body, Patch, Param, Delete, ParseUUIDPipe, Get } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -43,7 +43,7 @@ export class OrdersController {
     return this.ordersService.countOrdersCancel(lab_id);
   }
 
-  @Post(':id')
+  @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.findOne(id);
   }
@@ -51,5 +51,11 @@ export class OrdersController {
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.remove(id);
+  }
+
+  
+  @Get('results/:id')
+  findOrderWithResults(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findOrderWithResults(id);
   }
 }

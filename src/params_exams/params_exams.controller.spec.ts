@@ -21,6 +21,7 @@ describe('ParamsExamsController', () => {
     par_max_woman: 9,
     par_min_child: 0.5,
     par_max_child: 8,
+    par_reference_value: '70-110 mg/dL', // Nuevo parámetro opcional
     exam: 'exam-uuid',
   };
   const updateDto: UpdateParamsExamDto = {
@@ -34,6 +35,7 @@ describe('ParamsExamsController', () => {
     par_max_woman: 11,
     par_min_child: 1,
     par_max_child: 9,
+    par_reference_value: '80-120 g/L', // Nuevo parámetro opcional
     exam: 'exam-uuid',
   };
 
@@ -60,7 +62,7 @@ describe('ParamsExamsController', () => {
 
   describe('create', () => {
     it('debe delegar a ParamsExamsService.create', async () => {
-      const result = await controller.create(createDto, userMock);
+      const result = await controller.create(createDto);
       expect(service.create).toHaveBeenCalledWith(createDto);
       expect(result.status).toBe(201);
     });
@@ -68,7 +70,7 @@ describe('ParamsExamsController', () => {
 
   describe('update', () => {
     it('debe delegar a ParamsExamsService.update', async () => {
-      const result = await controller.update('par-id', updateDto, userMock);
+      const result = await controller.update('par-id', updateDto);
       expect(service.update).toHaveBeenCalledWith('par-id', updateDto);
       expect(result.status).toBe(200);
     });
