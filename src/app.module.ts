@@ -12,6 +12,7 @@ import { RoleModule } from './role/role.module';
 import { AllianceModule } from './alliance/alliance.module';
 import { OrdersModule } from './orders/orders.module';
 import { ResultsModule } from './results/results.module';
+import { ExceptionModule } from './exceptions/exception/exception.module';
 
 
 @Module({
@@ -27,7 +28,7 @@ import { ResultsModule } from './results/results.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, 
+    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, 
   ],
   controllers: [],
   providers: [],

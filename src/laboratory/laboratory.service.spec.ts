@@ -2,70 +2,76 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LaboratoryService } from './laboratory.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Laboratory } from './entities/laboratory.entity';
-import { Repository } from 'typeorm';
+import { ExceptionService } from '../exceptions/exception/exception.service';
+
+const mockLabRepo = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOneBy: jest.fn(),
+  preload: jest.fn(),
+};
+const mockExceptionService = { handleDBError: jest.fn() };
 
 describe('LaboratoryService', () => {
   let service: LaboratoryService;
-  let repository: Repository<Laboratory>;
-
-  const mockRepository = {
-    create: jest.fn(dto => dto),
-    save: jest.fn(entity => Promise.resolve(entity)),
-    find: jest.fn(() => Promise.resolve([])),
-    findOneBy: jest.fn(({ lab_id }) => Promise.resolve(lab_id === 'exists' ? { lab_id } : null)),
-    preload: jest.fn(({ lab_id, ...rest }) => Promise.resolve(lab_id === 'exists' ? { lab_id, ...rest } : null)),
-  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LaboratoryService,
-        {
-          provide: getRepositoryToken(Laboratory),
-          useValue: mockRepository,
-        },
+        { provide: getRepositoryToken(Laboratory), useValue: mockLabRepo },
+        { provide: ExceptionService, useValue: mockExceptionService },
       ],
     }).compile();
-
     service = module.get<LaboratoryService>(LaboratoryService);
-    repository = module.get<Repository<Laboratory>>(getRepositoryToken(Laboratory));
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-  it('debería estar definido el servicio', () => {
+  it('debería estar definido', () => {
     expect(service).toBeDefined();
   });
 
   it('debería crear un laboratorio', async () => {
     const dto = { lab_nit: '123', lab_name: 'Lab', lab_address: '', lab_phone: '', lab_status: '', lab_email: '', lab_legal_representative: '' };
+    const lab = { ...dto };
+    mockLabRepo.create.mockReturnValue(lab);
+    mockLabRepo.save.mockResolvedValue(lab);
     const result = await service.create(dto as any);
     expect(result.status).toBe(201);
-    expect(mockRepository.create).toHaveBeenCalledWith(dto);
-    expect(mockRepository.save).toHaveBeenCalled();
+    expect(mockLabRepo.create).toHaveBeenCalledWith(dto);
+    expect(mockLabRepo.save).toHaveBeenCalled();
   });
 
   it('debería retornar todos los laboratorios', async () => {
+    const labs = [{ lab_id: '1' }, { lab_id: '2' }];
+    mockLabRepo.find.mockResolvedValue(labs);
     const result = await service.findAll();
     expect(result.status).toBe(200);
     expect(Array.isArray(result.data)).toBe(true);
-    expect(mockRepository.find).toHaveBeenCalled();
+    expect(result.data).toEqual(labs);
+    expect(mockLabRepo.find).toHaveBeenCalled();
   });
 
   it('debería retornar un laboratorio por id', async () => {
+    const lab = { lab_id: 'exists' };
+    mockLabRepo.findOneBy.mockResolvedValue(lab);
     const result = await service.findOne('exists');
     expect(result.status).toBe(200);
     expect(result.data.lab_id).toBe('exists');
-    expect(mockRepository.findOneBy).toHaveBeenCalledWith({ lab_id: 'exists' });
+    expect(mockLabRepo.findOneBy).toHaveBeenCalledWith({ lab_id: 'exists' });
   });
 
   it('debería actualizar un laboratorio', async () => {
-    mockRepository.preload.mockResolvedValueOnce({ lab_id: 'exists', lab_name: 'Updated' });
-    mockRepository.save.mockResolvedValueOnce({ lab_id: 'exists', lab_name: 'Updated' });
+    const lab = { lab_id: 'exists', lab_name: 'Updated' };
+    mockLabRepo.preload.mockResolvedValueOnce(lab);
+    mockLabRepo.save.mockResolvedValueOnce(lab);
     const result = await service.update('exists', { lab_name: 'Updated' } as any);
     expect(result.status).toBe(200);
-    expect(mockRepository.preload).toHaveBeenCalledWith({ lab_id: 'exists', lab_name: 'Updated' });
-    expect(mockRepository.save).toHaveBeenCalled();
+    expect(mockLabRepo.preload).toHaveBeenCalledWith({ lab_id: 'exists', lab_name: 'Updated' });
+    expect(mockLabRepo.save).toHaveBeenCalled();
   });
-  
 });

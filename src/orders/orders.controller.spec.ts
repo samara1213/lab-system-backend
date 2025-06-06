@@ -2,26 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { FilterOrderDto } from './dto/filter-order.dto';
-
-const mockOrder = { ord_id: 'uuid', ord_status: 'PENDIENTE' };
-const mockResponse = { status: 200, data: [mockOrder] };
-
-const mockOrdersService = {
-  create: jest.fn().mockResolvedValue({ status: 201, message: 'La orden de laboratorio se ha creado correctamente' }),
-  findByCustomerAndLaboratory: jest.fn().mockResolvedValue(mockResponse),
-  findByLaboratoryAndStatus: jest.fn().mockResolvedValue(mockResponse),
-  countOrdersByStatusAndLaboratory: jest.fn().mockResolvedValue({ status: 200, data: 2 }),
-  countOrdersToday: jest.fn().mockResolvedValue({ status: 200, data: 1 }),
-  changeStatus: jest.fn().mockResolvedValue({ status: 200, message: 'La orden de laboratorio se ha actualizado correctamente' }),
-  countOrdersCancel: jest.fn().mockResolvedValue({ status: 200, data: 1 }),
-  findOne: jest.fn().mockResolvedValue({ status: 200, data: mockOrder }),
-  remove: jest.fn().mockResolvedValue({ status: 200, message: 'La orden de laboratorio se ha cancelado correctamente' }),
-};
 
 describe('OrdersController', () => {
   let controller: OrdersController;
   let service: OrdersService;
+
+  const mockOrdersService = {
+    create: jest.fn(),
+    findByCustomerAndLaboratory: jest.fn(),
+    findByLaboratoryAndStatus: jest.fn(),
+    countOrdersByStatusAndLaboratory: jest.fn(),
+    countOrdersToday: jest.fn(),
+    changeStatus: jest.fn(),
+    countOrdersCancel: jest.fn(),
+    findOne: jest.fn(),
+    remove: jest.fn(),
+    findOrderWithResults: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,70 +29,98 @@ describe('OrdersController', () => {
         { provide: OrdersService, useValue: mockOrdersService },
       ],
     }).compile();
+
     controller = module.get<OrdersController>(OrdersController);
     service = module.get<OrdersService>(OrdersService);
+    jest.clearAllMocks();
   });
 
-  it('debe estar definido', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  it('debe crear una orden', async () => {
-    const dto: CreateOrderDto = { ord_total_value: 100, lab_id: 'uuid', cus_id: 'uuid', exa_ids: [] } as any;
+  it('debería crear una orden', async () => {
+    const dto: CreateOrderDto = {} as any;
+    const expected = { status: 201, message: 'ok' };
+    mockOrdersService.create.mockResolvedValue(expected);
     const result = await controller.create(dto);
-    expect(result).toEqual({ status: 201, message: expect.any(String) });
+    expect(result).toEqual(expected);
     expect(service.create).toHaveBeenCalledWith(dto);
   });
 
-  it('debe buscar ordenes por cliente y laboratorio', async () => {
-    const dto: FilterOrderDto = { lab_id: 'uuid', cus_id: 'uuid' };
+  it('debería buscar por cliente y laboratorio', async () => {
+    const dto: FilterOrderDto = {} as any;
+    const expected = { status: 200, data: [] };
+    mockOrdersService.findByCustomerAndLaboratory.mockResolvedValue(expected);
     const result = await controller.findByCustomerAndLaboratory(dto);
-    expect(result).toEqual(mockResponse);
+    expect(result).toEqual(expected);
     expect(service.findByCustomerAndLaboratory).toHaveBeenCalledWith(dto);
   });
 
-  it('debe buscar ordenes por laboratorio y estado', async () => {
-    const dto: FilterOrderDto = { lab_id: 'uuid', ord_status: 'PENDIENTE' };
+  it('debería buscar por laboratorio y estado', async () => {
+    const dto: FilterOrderDto = {} as any;
+    const expected = { status: 200, data: [] };
+    mockOrdersService.findByLaboratoryAndStatus.mockResolvedValue(expected);
     const result = await controller.findByLaboratoryAndStatus(dto);
-    expect(result).toEqual(mockResponse);
+    expect(result).toEqual(expected);
     expect(service.findByLaboratoryAndStatus).toHaveBeenCalledWith(dto);
   });
 
-  it('debe contar ordenes por estado y laboratorio', async () => {
-    const dto: FilterOrderDto = { lab_id: 'uuid', ord_status: 'PENDIENTE' };
+  it('debería contar órdenes por estado y laboratorio', async () => {
+    const dto: FilterOrderDto = {} as any;
+    const expected = { status: 200, count: 5 };
+    mockOrdersService.countOrdersByStatusAndLaboratory.mockResolvedValue(expected);
     const result = await controller.countOrdersByStatusAndLaboratory(dto);
-    expect(result).toEqual({ status: 200, data: 2 });
+    expect(result).toEqual(expected);
     expect(service.countOrdersByStatusAndLaboratory).toHaveBeenCalledWith(dto);
   });
 
-  it('debe contar ordenes de hoy', async () => {
-    const result = await controller.countOrdersToday('uuid');
-    expect(result).toEqual({ status: 200, data: 1 });
-    expect(service.countOrdersToday).toHaveBeenCalledWith('uuid');
+  it('debería contar órdenes de hoy', async () => {
+    const expected = { status: 200, count: 2 };
+    mockOrdersService.countOrdersToday.mockResolvedValue(expected);
+    const result = await controller.countOrdersToday('lab-uuid');
+    expect(result).toEqual(expected);
+    expect(service.countOrdersToday).toHaveBeenCalledWith('lab-uuid');
   });
 
-  it('debe cambiar el estado de una orden', async () => {
-    const dto: FilterOrderDto = { ord_id: 'uuid', ord_status: 'CANCELADA' };
+  it('debería cambiar el estado de una orden', async () => {
+    const dto: FilterOrderDto = {} as any;
+    const expected = { status: 200, message: 'ok' };
+    mockOrdersService.changeStatus.mockResolvedValue(expected);
     const result = await controller.changeStatus(dto);
-    expect(result).toEqual({ status: 200, message: expect.any(String) });
+    expect(result).toEqual(expected);
     expect(service.changeStatus).toHaveBeenCalledWith(dto);
   });
 
-  it('debe contar ordenes canceladas', async () => {
-    const result = await controller.countOrdersCancel('uuid');
-    expect(result).toEqual({ status: 200, data: 1 });
-    expect(service.countOrdersCancel).toHaveBeenCalledWith('uuid');
+  it('debería contar órdenes canceladas', async () => {
+    const expected = { status: 200, count: 1 };
+    mockOrdersService.countOrdersCancel.mockResolvedValue(expected);
+    const result = await controller.countOrdersCancel('lab-uuid');
+    expect(result).toEqual(expected);
+    expect(service.countOrdersCancel).toHaveBeenCalledWith('lab-uuid');
   });
 
-  it('debe buscar una orden por id', async () => {
-    const result = await controller.findOne('uuid');
-    expect(result).toEqual({ status: 200, data: mockOrder });
-    expect(service.findOne).toHaveBeenCalledWith('uuid');
+  it('debería retornar una orden por id', async () => {
+    const expected = { status: 200, data: { order_id: '1' } };
+    mockOrdersService.findOne.mockResolvedValue(expected);
+    const result = await controller.findOne('order-uuid');
+    expect(result).toEqual(expected);
+    expect(service.findOne).toHaveBeenCalledWith('order-uuid');
   });
 
-  it('debe cancelar una orden', async () => {
-    const result = await controller.remove('uuid');
-    expect(result).toEqual({ status: 200, message: expect.any(String) });
-    expect(service.remove).toHaveBeenCalledWith('uuid');
+  it('debería eliminar una orden', async () => {
+    const expected = { status: 200, message: 'deleted' };
+    mockOrdersService.remove.mockResolvedValue(expected);
+    const result = await controller.remove('order-uuid');
+    expect(result).toEqual(expected);
+    expect(service.remove).toHaveBeenCalledWith('order-uuid');
+  });
+
+  it('debería retornar una orden con resultados', async () => {
+    const expected = { status: 200, data: { order_id: '1', results: [] } };
+    mockOrdersService.findOrderWithResults.mockResolvedValue(expected);
+    const result = await controller.findOrderWithResults('order-uuid');
+    expect(result).toEqual(expected);
+    expect(service.findOrderWithResults).toHaveBeenCalledWith('order-uuid');
   });
 });

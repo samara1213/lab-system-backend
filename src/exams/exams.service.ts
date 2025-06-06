@@ -6,6 +6,7 @@ import { Exam } from './entities/exam.entity';
 import { Repository } from 'typeorm';
 import { Laboratory } from '../laboratory/entities/laboratory.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class ExamsService {
@@ -22,6 +23,8 @@ export class ExamsService {
 
     @InjectRepository(Alliance)
     private readonly allianceRepository: Repository<Alliance>,
+
+    private readonly exceptionService: ExceptionService,
 
   ) {}
 
@@ -68,7 +71,7 @@ export class ExamsService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
 
     }
   }
@@ -122,7 +125,7 @@ export class ExamsService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -151,7 +154,7 @@ export class ExamsService {
         data: exam
       };
     } catch (error) {
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -175,26 +178,7 @@ export class ExamsService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
-  }
-
-
-  /**
- * Metodo que se encarga de validar cualquier  tipo de error 
- * @param error generado
- */
-  private handleExceptions(error: any) {
-
-    console.log(error);
-
-    if (23505 === +error.code) throw new BadRequestException(' Ya existe registro con el mismo examen');
-
-    // error no encontrado 
-    if (400 === +error.status) throw new BadRequestException(error.response.message);
-
-    throw new InternalServerErrorException('Error del sistema');
-
-
   }
 }

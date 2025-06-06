@@ -4,6 +4,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Role } from './entities/role.entity';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class RoleService {
@@ -11,6 +12,7 @@ export class RoleService {
   constructor(
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly exceptionService: ExceptionService, 
   ) {}
 
 
@@ -48,7 +50,7 @@ export class RoleService {
       };
 
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
     
   }
@@ -72,7 +74,7 @@ export class RoleService {
 
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -103,7 +105,7 @@ export class RoleService {
     
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -151,20 +153,8 @@ export class RoleService {
 
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
- 
 
-  /**
-   *  fncion para el manejo de errores de la base de datos
-   * @param error - Error capturado
-   */  
-  private handleDBError(error: any): never {
-
-    if (error.code === '23505') {
-      throw new ConflictException('El nombre del rol ya existe, por favor ingrese otro nombre');
-    }
-    throw new InternalServerErrorException('Error al procesar la solicitud, por favor intente más tarde');
-  }
 }

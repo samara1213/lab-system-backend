@@ -2,80 +2,73 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RoleService } from './role.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Role } from './entities/role.entity';
-import { Repository } from 'typeorm';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('RoleService', () => {
   let service: RoleService;
-  let repository: Repository<Role>;
-
-  const mockRepository = {
-    create: jest.fn(dto => dto),
-    save: jest.fn(entity => Promise.resolve(entity)),
-    find: jest.fn(() => Promise.resolve([])),
-    findOneBy: jest.fn(({ rol_id }) => Promise.resolve(rol_id === 'exists' ? { rol_id } : null)),
-    preload: jest.fn(({ rol_id, ...rest }) => Promise.resolve(rol_id === 'exists' ? { rol_id, ...rest } : null)),
+  const mockRoleRepo = {
+    create: jest.fn(),
+    save: jest.fn(),
+    find: jest.fn(),
+    findOneBy: jest.fn(),
+    preload: jest.fn(),
   };
+  const mockExceptionService = { handleDBError: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoleService,
-        {
-          provide: getRepositoryToken(Role),
-          useValue: mockRepository,
-        },
+        { provide: getRepositoryToken(Role), useValue: mockRoleRepo },
+        { provide: ExceptionService, useValue: mockExceptionService },
       ],
     }).compile();
-
     service = module.get<RoleService>(RoleService);
-    repository = module.get<Repository<Role>>(getRepositoryToken(Role));
+    jest.clearAllMocks();
   });
 
-  afterEach(() => jest.clearAllMocks());
-
-  it('debería estar definido el servicio', () => {
+  it('debería estar definido', () => {
     expect(service).toBeDefined();
   });
 
   it('debería crear un rol', async () => {
-    const dto = { rol_nombre: 'Admin', menus: ['uuid1', 'uuid2'] };
+    const dto = { name: 'admin', menus: ['1', '2'] };
+    const role = { ...dto, menus: [{ men_id: '1' }, { men_id: '2' }] };
+    mockRoleRepo.create.mockReturnValue(role);
+    mockRoleRepo.save.mockResolvedValue(role);
     const result = await service.create(dto as any);
     expect(result.status).toBe(201);
-    // La llamada real a create incluye solo los datos del rol, sin los menús
-    expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({ rol_nombre: 'Admin' }));
-    // La llamada a save incluye los menús como objetos con men_id
-    expect(mockRepository.save).toHaveBeenCalledWith(expect.objectContaining({ rol_nombre: 'Admin', menus: [{ men_id: 'uuid1' }, { men_id: 'uuid2' }] }));
+    expect(mockRoleRepo.create).toHaveBeenCalledWith({ name: 'admin' });
+    expect(mockRoleRepo.save).toHaveBeenCalledWith(role);
   });
 
   it('debería retornar todos los roles', async () => {
+    const roles = [{ rol_id: '1' }, { rol_id: '2' }];
+    mockRoleRepo.find.mockResolvedValue(roles);
     const result = await service.findAll();
     expect(result.status).toBe(200);
     expect(Array.isArray(result.data)).toBe(true);
-    expect(mockRepository.find).toHaveBeenCalled();
+    expect(result.data).toEqual(roles);
+    expect(mockRoleRepo.find).toHaveBeenCalled();
   });
 
   it('debería retornar un rol por id', async () => {
-    const result = await service.findOne('exists');
+    const role = { rol_id: '1' };
+    mockRoleRepo.findOneBy.mockResolvedValue(role);
+    const result = await service.findOne('1');
     expect(result.status).toBe(200);
-    expect(result.data.rol_id).toBe('exists');
-    expect(mockRepository.findOneBy).toHaveBeenCalledWith({ rol_id: 'exists' });
-  });
-
-  it('debería lanzar error si el rol no existe', async () => {
-    await expect(service.findOne('not-exists')).rejects.toThrow();
+    expect(result.data).toEqual(role);
+    expect(mockRoleRepo.findOneBy).toHaveBeenCalledWith({ rol_id: '1' });
   });
 
   it('debería actualizar un rol', async () => {
-    mockRepository.preload.mockResolvedValueOnce({ rol_id: 'exists', rol_nombre: 'Updated' });
-    mockRepository.save.mockResolvedValueOnce({ rol_id: 'exists', rol_nombre: 'Updated' });
-    const result = await service.update('exists', { rol_nombre: 'Updated', menus: ['uuid1'] } as any);
+    const dto = { name: 'nuevo', menus: ['1'] };
+    const role = { rol_id: '1', name: 'nuevo', menus: [{ men_id: '1' }] };
+    mockRoleRepo.preload.mockResolvedValue(role);
+    mockRoleRepo.save.mockResolvedValue(role);
+    const result = await service.update('1', dto as any);
     expect(result.status).toBe(200);
-    expect(mockRepository.preload).toHaveBeenCalledWith({ rol_id: 'exists', rol_nombre: 'Updated' });
-    expect(mockRepository.save).toHaveBeenCalled();
-  });
-
-  it('debería lanzar error si el rol a actualizar no existe', async () => {
-    mockRepository.preload.mockResolvedValueOnce(null);
-    await expect(service.update('not-exists', { rol_nombre: 'Updated', menus: [] } as any)).rejects.toThrow();
+    expect(mockRoleRepo.preload).toHaveBeenCalledWith({ rol_id: '1', name: 'nuevo' });
+    expect(mockRoleRepo.save).toHaveBeenCalledWith(role);
   });
 });

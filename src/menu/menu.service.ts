@@ -4,6 +4,7 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Menu } from './entities/menu.entity';
 import { Repository } from 'typeorm';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class MenuService {
@@ -13,6 +14,7 @@ export class MenuService {
   constructor( 
    @InjectRepository(Menu)
     private readonly menuRepository: Repository<Menu>,
+    private readonly exceptionService: ExceptionService,
   ){}
 
   /**
@@ -50,7 +52,7 @@ export class MenuService {
       };
 
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -74,7 +76,7 @@ export class MenuService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
   }
@@ -117,7 +119,7 @@ export class MenuService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
 
     }
   }
@@ -141,24 +143,7 @@ async getMenuParentByLevel(level: number) {
       };
 
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
-  }
-
-  /**
-   * Método para obtener una opción de menú por su ID
-   * @param id - ID de la opción de menú a buscar
-   * @returns Opción de menú encontrada
-   */
-  private handleDBError(error: any): never {
-
-    this.logger.error(error);
-
-    if (error.code === '23505') {
-
-      throw new ConflictException('El nombre del menú ya existe, por favor ingrese otro nombre');
-    }
-
-    throw new InternalServerErrorException('Error al procesar la solicitud, por favor intente más tarde');
   }
 }

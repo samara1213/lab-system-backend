@@ -4,6 +4,7 @@ import { UpdateResultDto } from './dto/update-result.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from './entities/result.entity';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class ResultsService {
@@ -11,6 +12,7 @@ export class ResultsService {
   constructor(
     @InjectRepository(Result)
     private readonly resultRepository: Repository<Result>,
+    private readonly exceptionService: ExceptionService,
   ) {}
 
   /**
@@ -39,7 +41,7 @@ export class ResultsService {
       }
 
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
   }
@@ -66,7 +68,7 @@ export class ResultsService {
       };
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -102,24 +104,9 @@ export class ResultsService {
       };
 
     } catch (error) {
-      this.handleDBError(error);
+
+      this.exceptionService.handleDBError(error);
     }
   }
 
-
-  /**
-   * Manejo centralizado de errores para el servicio de resultados
-   * @param error - Error capturado
-   */
-  private handleDBError(error: any): never {
-
-    if (error.code === '23505') {
-      throw new ConflictException('El registro ya existe');
-    }
-
-    if (error.status === 400) {
-      throw new BadRequestException('No encontramos registros con los datos enviados');
-    }
-    throw new InternalServerErrorException('Error interno del servidor, por favor intente más tarde');
-  }
 }

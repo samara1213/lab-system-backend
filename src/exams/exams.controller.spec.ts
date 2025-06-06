@@ -3,6 +3,7 @@ import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('ExamsController', () => {
   let controller: ExamsController;
@@ -23,6 +24,7 @@ describe('ExamsController', () => {
       controllers: [ExamsController],
       providers: [
         { provide: ExamsService, useValue: examsServiceMock },
+        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
       ],
     }).compile();
 

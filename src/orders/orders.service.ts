@@ -5,6 +5,7 @@ import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
 import { FilterOrderDto } from './dto/filter-order.dto';
 import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 
 @Injectable()
@@ -14,6 +15,7 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order) // Assuming Order is the entity for orders
     private readonly orderRepository: Repository<Order>,
+    private readonly exceptionService: ExceptionService, 
   ) {}
   
   /**
@@ -56,7 +58,7 @@ export class OrdersService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
 
     }
   }
@@ -93,7 +95,7 @@ export class OrdersService {
     
     } catch (error) {
     
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -120,7 +122,7 @@ export class OrdersService {
       };
       
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -147,7 +149,7 @@ export class OrdersService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
   }
@@ -180,7 +182,7 @@ export class OrdersService {
       };
 
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -207,7 +209,7 @@ export class OrdersService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
 
     }
   }
@@ -237,7 +239,7 @@ export class OrdersService {
       
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
     
@@ -267,7 +269,7 @@ export class OrdersService {
       
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
     
@@ -297,28 +299,13 @@ export class OrdersService {
       
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
  
 
   }
-
-  /**
-     * Método para obtener una opción de menú por su ID
-     * @param id - ID de la opción de menú a buscar
-     * @returns Opción de menú encontrada
-  */
-  private handleDBError(error: any): never { 
-   
-      console.log(error);
-      if (error.code === '23505') {
-  
-        throw new ConflictException('En este momento no se puede procesar la solicitud, por favor intente más tarde');
-      }
-  
-      throw new InternalServerErrorException('Error al procesar la solicitud, por favor intente más tarde');
-    }
+ 
 
   /**
    * Busca una orden por su ID y retorna la orden junto con los resultados asociados,
@@ -351,7 +338,7 @@ export class OrdersService {
         data,
       };
     } catch (error) {
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
   

@@ -2,69 +2,72 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MenuService } from './menu.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Menu } from './entities/menu.entity';
-import { Repository } from 'typeorm';
+import { ExceptionService } from '../exceptions/exception/exception.service';
+
+const mockMenuRepo = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  preload: jest.fn(),
+};
+const mockExceptionService = { handleDBError: jest.fn() };
 
 describe('MenuService', () => {
   let service: MenuService;
-  let repository: Repository<Menu>;
-
-  const mockRepository = {
-    create: jest.fn(dto => dto),
-    save: jest.fn(entity => Promise.resolve(entity)),
-    find: jest.fn(() => Promise.resolve([])),
-    preload: jest.fn(({ men_id, ...rest }) => Promise.resolve(men_id === 'exists' ? { men_id, ...rest } : null)),
-  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MenuService,
-        {
-          provide: getRepositoryToken(Menu),
-          useValue: mockRepository,
-        },
+        { provide: getRepositoryToken(Menu), useValue: mockMenuRepo },
+        { provide: ExceptionService, useValue: mockExceptionService },
       ],
     }).compile();
-
     service = module.get<MenuService>(MenuService);
-    repository = module.get<Repository<Menu>>(getRepositoryToken(Menu));
+    jest.clearAllMocks();
   });
 
-  afterEach(() => jest.clearAllMocks());
-
-  it('debería estar definido el servicio', () => {
+  it('debería estar definido', () => {
     expect(service).toBeDefined();
   });
 
   it('debería crear un menú', async () => {
-    const dto = { men_name: 'Test', men_level: 1 };
+    const dto = { men_name: 'Inicio', men_url: '/inicio', men_icon: 'home', men_level: 1 };
+    const menu = { ...dto };
+    mockMenuRepo.create.mockReturnValue(menu);
+    mockMenuRepo.save.mockResolvedValue(menu);
     const result = await service.create(dto as any);
     expect(result.status).toBe(201);
-    expect(mockRepository.create).toHaveBeenCalledWith(dto);
-    expect(mockRepository.save).toHaveBeenCalled();
+    expect(mockMenuRepo.create).toHaveBeenCalledWith(dto);
+    expect(mockMenuRepo.save).toHaveBeenCalled();
   });
 
   it('debería retornar todos los menús', async () => {
+    const menus = [{ men_id: '1' }, { men_id: '2' }];
+    mockMenuRepo.find.mockResolvedValue(menus);
     const result = await service.findAll();
     expect(result.status).toBe(200);
     expect(Array.isArray(result.data)).toBe(true);
-    expect(mockRepository.find).toHaveBeenCalled();
+    expect(result.data).toEqual(menus);
+    expect(mockMenuRepo.find).toHaveBeenCalled();
   });
 
   it('debería actualizar un menú', async () => {
-    mockRepository.preload.mockResolvedValueOnce({ men_id: 'exists', men_name: 'Updated' });
-    mockRepository.save.mockResolvedValueOnce({ men_id: 'exists', men_name: 'Updated' });
-    const result = await service.update('exists', { men_name: 'Updated' } as any);
+    const menu = { men_id: '1', men_name: 'Nuevo' };
+    mockMenuRepo.preload.mockResolvedValueOnce(menu);
+    mockMenuRepo.save.mockResolvedValueOnce(menu);
+    const result = await service.update('1', { men_name: 'Nuevo' } as any);
     expect(result.status).toBe(200);
-    expect(mockRepository.preload).toHaveBeenCalledWith({ men_id: 'exists', men_name: 'Updated' });
-    expect(mockRepository.save).toHaveBeenCalled();
+    expect(mockMenuRepo.preload).toHaveBeenCalledWith({ men_id: '1', men_name: 'Nuevo' });
+    expect(mockMenuRepo.save).toHaveBeenCalled();
   });
 
   it('debería obtener menús por nivel', async () => {
-    mockRepository.find.mockResolvedValueOnce([{ men_level: 2 }]);
+    const menus = [{ men_id: '1', men_level: 2 }];
+    mockMenuRepo.find.mockResolvedValueOnce(menus);
     const result = await service.getMenuParentByLevel(2);
     expect(result.status).toBe(200);
-    expect(Array.isArray(result.data)).toBe(true);
-    expect(mockRepository.find).toHaveBeenCalledWith({ where: { men_level: 2 } });
+    expect(result.data).toEqual(menus);
+    expect(mockMenuRepo.find).toHaveBeenCalledWith({ where: { men_level: 2 } });
   });
 });

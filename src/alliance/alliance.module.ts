@@ -3,11 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AllianceService } from './alliance.service';
 import { AllianceController } from './alliance.controller';
 import { Alliance } from './entities/alliance.entity';
-import { LaboratoryModule } from 'src/laboratory/laboratory.module';
+import { LaboratoryModule } from '../laboratory/laboratory.module';
+import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Alliance]),
-            LaboratoryModule],
+            LaboratoryModule,
+           ExceptionModule],
   controllers: [AllianceController],
   providers: [AllianceService],
   exports: [TypeOrmModule],

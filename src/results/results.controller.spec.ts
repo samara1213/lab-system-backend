@@ -4,17 +4,15 @@ import { ResultsService } from './results.service';
 import { CreateResultDto } from './dto/create-result.dto';
 import { UpdateResultDto } from './dto/update-result.dto';
 
-const mockResult = { res_id: 'uuid', res_value: '100', order: { ord_id: 'order-uuid' }, exam: { exa_id: 'exam-uuid' }, param: { par_id: 'param-uuid' } };
-
-const mockResultsService = {
-  create: jest.fn().mockResolvedValue({ status: 201, message: 'El resultado se ha creado correctamente' }),
-  update: jest.fn().mockResolvedValue({ status: 200, message: 'El resultado se ha actualizado correctamente' }),
-  findOne: jest.fn().mockResolvedValue({ status: 200, data: [mockResult] }),
-};
-
 describe('ResultsController', () => {
   let controller: ResultsController;
   let service: ResultsService;
+
+  const mockResultsService = {
+    create: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -23,31 +21,39 @@ describe('ResultsController', () => {
         { provide: ResultsService, useValue: mockResultsService },
       ],
     }).compile();
+
     controller = module.get<ResultsController>(ResultsController);
     service = module.get<ResultsService>(ResultsService);
+    jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  it('debe crear un resultado', async () => {
-    const dto: CreateResultDto = { res_value: '100', order: 'order-uuid', exam: 'exam-uuid', param: 'param-uuid' } as any;
+  it('debería crear un resultado', async () => {
+    const dto: CreateResultDto = { value: '10' } as any;
+    const expected = { status: 201, message: 'ok' };
+    mockResultsService.create.mockResolvedValue(expected);
     const result = await controller.create(dto);
-    expect(result).toEqual({ status: 201, message: expect.any(String) });
+    expect(result).toEqual(expected);
     expect(service.create).toHaveBeenCalledWith(dto);
   });
 
-  it('debe actualizar un resultado', async () => {
-    const dto: UpdateResultDto = { res_value: '110', order: 'order-uuid', exam: 'exam-uuid', param: 'param-uuid' } as any;
-    const result = await controller.update('uuid', dto);
-    expect(result).toEqual({ status: 200, message: expect.any(String) });
-    expect(service.update).toHaveBeenCalledWith('uuid', dto);
+  it('debería retornar un resultado por id', async () => {
+    const expected = { status: 200, data: { res_id: '1' } };
+    mockResultsService.findOne.mockResolvedValue(expected);
+    const result = await controller.findOne('1');
+    expect(result).toEqual(expected);
+    expect(service.findOne).toHaveBeenCalledWith('1');
   });
 
-  it('debe consultar resultados por id de orden', async () => {
-    const result = await controller.findOne('order-uuid');
-    expect(result).toEqual({ status: 200, data: [mockResult] });
-    expect(service.findOne).toHaveBeenCalledWith('order-uuid');
+  it('debería actualizar un resultado', async () => {
+    const dto: UpdateResultDto = { value: '20' } as any;
+    const expected = { status: 200, message: 'ok' };
+    mockResultsService.update.mockResolvedValue(expected);
+    const result = await controller.update('1', dto);
+    expect(result).toEqual(expected);
+    expect(service.update).toHaveBeenCalledWith('1', dto);
   });
 });

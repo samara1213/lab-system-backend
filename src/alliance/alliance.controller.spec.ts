@@ -1,21 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('AllianceController', () => {
   let controller: AllianceController;
   let service: AllianceService;
 
+  const mockAllianceService = {
+    create: jest.fn().mockResolvedValue({ status: 201, message: 'se ha creado correctamente la alianza' }),
+    update: jest.fn().mockResolvedValue({ status: 200, message: 'Alianza actualizada correctamente' }),
+    findAllByLaboratory: jest.fn().mockResolvedValue({ status: 200, data: [] }),
+  };
+
   beforeEach(async () => {
-    const mockService = {
-      create: jest.fn().mockResolvedValue({ status: 201, message: 'se ha creado correctamente la alianza' }),
-      update: jest.fn().mockResolvedValue({ status: 200, message: 'Alianza actualizada correctamente' }),
-      findAllByLaboratory: jest.fn().mockResolvedValue({ status: 200, data: [] }),
-    };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AllianceController],
       providers: [
-        { provide: AllianceService, useValue: mockService },
+        { provide: AllianceService, useValue: mockAllianceService },
+        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
       ],
     }).compile();
 

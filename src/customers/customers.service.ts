@@ -6,6 +6,7 @@ import { Customer } from './entities/customer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../auth/entities/user.entity';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 
 @Injectable()
@@ -16,8 +17,8 @@ export class CustomersService {
   constructor(
     
     @InjectRepository(Customer)
-
-    private readonly customerRepository: Repository<Customer>
+    private readonly customerRepository: Repository<Customer>,
+    private readonly exceptionService: ExceptionService, // Importamos el módulo de excepciones
 
   ){}
 
@@ -46,7 +47,7 @@ export class CustomersService {
       };
     
     } catch (error) {
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -72,7 +73,7 @@ export class CustomersService {
       
     } catch (error) {
       
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -104,7 +105,7 @@ export class CustomersService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
       
     }
   }
@@ -145,24 +146,7 @@ export class CustomersService {
       
     } catch (error) {
       
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
-  }
-
-  
-  /**
-   * Metodo que se encarga de validar cualquier  tipo de error 
-   * @param error generado
-   */
-    private handleExceptions(error: any) { 
-      
-      if (23505 === +error.code) throw new BadRequestException(' Ya existe registro del cliente para esta empresa');
-      
-      // error no encontrado 
-      if (400 === +error.status) throw new BadRequestException(error.response.message);
-
-      throw new InternalServerErrorException('Error del sistema');
-
-
-    }
+  } 
 }

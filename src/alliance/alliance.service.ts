@@ -5,6 +5,8 @@ import { CreateAllianceDto } from './dto/create-alliance.dto';
 import { UpdateAllianceDto } from './dto/update-alliance.dto';
 import { Alliance } from './entities/alliance.entity';
 import { Laboratory } from '../laboratory/entities/laboratory.entity';
+import { ExceptionService } from '../exceptions/exception/exception.service';
+
 
 @Injectable()
 export class AllianceService {
@@ -13,6 +15,8 @@ export class AllianceService {
     private readonly allianceRepository: Repository<Alliance>,
     @InjectRepository(Laboratory)
     private readonly laboratoryRepository: Repository<Laboratory>,
+
+    private readonly exceptionService: ExceptionService, // Importamos el módulo de excepciones
   ) {}
 
   /**
@@ -47,7 +51,7 @@ export class AllianceService {
 
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
 
   }
@@ -106,7 +110,7 @@ export class AllianceService {
     
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }  
 
@@ -131,22 +135,8 @@ export class AllianceService {
     
     } catch (error) {
     
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
-  /**
-   * Maneja los errores de la base de datos
-   * @param error Error capturado
-   */
-  private handleDBError(error: any) {
-  
-    if (error.code === '23505') {
-      throw new ConflictException('Registro duplicado');
-    }
-    if (error.status === 400) {
-      throw new BadRequestException('registro no encontrado o datos inválidos');
-    }
-    throw new InternalServerErrorException('Error al procesar la solicitud, por favor intente más tarde');
-  }
 }

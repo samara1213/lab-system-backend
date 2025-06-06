@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { Exam } from '../exams/entities/exam.entity';
 import { stat } from 'fs';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class ParamsExamsService {
@@ -19,7 +20,8 @@ export class ParamsExamsService {
     private readonly paramsExamsRepository: Repository<ParamsExam>,
     
     @InjectRepository(Exam)
-    private readonly examRepository: Repository<Exam>
+    private readonly examRepository: Repository<Exam>,
+    private readonly exceptionService: ExceptionService,
 
   ){}
 
@@ -53,7 +55,7 @@ export class ParamsExamsService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -93,7 +95,7 @@ export class ParamsExamsService {
 
     } catch (error) {
 
-      this.handleExceptions(error);
+      this.exceptionService.handleDBError(error);
 
     }
   } 
@@ -114,25 +116,9 @@ export class ParamsExamsService {
         data: params ?? [],
       };
     } catch (error) {
-      this.handleExceptions(error);
+
+      this.exceptionService.handleDBError(error);
     }
   }
-
-  /**
-  * Metodo que se encarga de validar cualquier  tipo de error 
-  * @param error generado
-  */
-    private handleExceptions(error: any) {
-
-      console.log(error);
-  
-      if (23505 === +error.code) throw new BadRequestException('El parametro ingresado ya existe');
-  
-      // error no encontrado 
-      if (400 === +error.status) throw new BadRequestException(error.response.message);
-  
-      throw new InternalServerErrorException('Error del sistema');
-  
-  
-    }
+ 
 }

@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestj
 import { LaboratoryService } from './laboratory.service';
 import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Auth } from '../auth/decorators/auth.decorator';
 
 @Controller('laboratory')
 //@Auth()

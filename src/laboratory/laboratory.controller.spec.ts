@@ -4,65 +4,73 @@ import { LaboratoryService } from './laboratory.service';
 import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
 
+const mockLabService = {
+  create: jest.fn(),
+  findAll: jest.fn(),
+  findOne: jest.fn(),
+  update: jest.fn(),
+};
+
 describe('LaboratoryController', () => {
   let controller: LaboratoryController;
   let service: LaboratoryService;
-
-  const mockLaboratoryService = {
-    create: jest.fn(dto => ({ status: 201, message: 'El registro de laboratorio se ha creado correctamente' })),
-    findAll: jest.fn(() => ({ status: 200, data: [] })),
-    findOne: jest.fn(id => ({ status: 200, data: { lab_id: id } })),
-    update: jest.fn((id, dto) => ({ status: 200, message: 'El registro de laboratorio se ha actualizado correctamente' })),
-  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [LaboratoryController],
       providers: [
-        {
-          provide: LaboratoryService,
-          useValue: mockLaboratoryService,
-        },
+        { provide: LaboratoryService, useValue: mockLabService },
       ],
     }).compile();
 
     controller = module.get<LaboratoryController>(LaboratoryController);
     service = module.get<LaboratoryService>(LaboratoryService);
+    jest.clearAllMocks();
   });
 
-  it('debería estar definido el controlador', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  it('debería crear un laboratorio', () => {
+  it('debería crear un laboratorio', async () => {
     const dto: CreateLaboratoryDto = {
-      lab_nit: '123456789',
-      lab_dv: '1',
-      lab_name: 'LabTest',
-      lab_address: 'Address',
-      lab_phone: '123456',
+      lab_nit: '123',
+      lab_name: 'Lab',
+      lab_address: 'Dir',
+      lab_phone: '123',
       lab_status: 'ACTIVO',
-      lab_logo: '',
-      lab_email: 'test@lab.com',
+      lab_email: 'lab@email.com',
       lab_legal_representative: 'Rep',
     };
-    expect(controller.create(dto)).toEqual({ status: 201, message: 'El registro de laboratorio se ha creado correctamente' });
+    const expected = { status: 201, message: 'ok' };
+    mockLabService.create.mockResolvedValue(expected);
+    const result = await controller.create(dto);
+    expect(result).toEqual(expected);
     expect(service.create).toHaveBeenCalledWith(dto);
   });
 
-  it('debería retornar todos los laboratorios', () => {
-    expect(controller.findAll()).toEqual({ status: 200, data: [] });
+  it('debería retornar todos los laboratorios', async () => {
+    const expected = { status: 200, data: [] };
+    mockLabService.findAll.mockResolvedValue(expected);
+    const result = await controller.findAll();
+    expect(result).toEqual(expected);
     expect(service.findAll).toHaveBeenCalled();
   });
 
-  it('debería retornar un laboratorio por id', () => {
-    expect(controller.findOne('uuid')).toEqual({ status: 200, data: { lab_id: 'uuid' } });
-    expect(service.findOne).toHaveBeenCalledWith('uuid');
+  it('debería retornar un laboratorio por id', async () => {
+    const expected = { status: 200, data: { lab_id: '1' } };
+    mockLabService.findOne.mockResolvedValue(expected);
+    const result = await controller.findOne('1');
+    expect(result).toEqual(expected);
+    expect(service.findOne).toHaveBeenCalledWith('1');
   });
 
-  it('debería actualizar un laboratorio', () => {
-    const dto: UpdateLaboratoryDto = { lab_name: 'Updated' } as any;
-    expect(controller.update('uuid', dto)).toEqual({ status: 200, message: 'El registro de laboratorio se ha actualizado correctamente' });
-    expect(service.update).toHaveBeenCalledWith('uuid', dto);
+  it('debería actualizar un laboratorio', async () => {
+    const dto: UpdateLaboratoryDto = { lab_name: 'Nuevo' };
+    const expected = { status: 200, message: 'ok' };
+    mockLabService.update.mockResolvedValue(expected);
+    const result = await controller.update('1', dto);
+    expect(result).toEqual(expected);
+    expect(service.update).toHaveBeenCalledWith('1', dto);
   });
 });

@@ -4,7 +4,7 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
-
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('CustomersController', () => {
   let controller: CustomersController;
@@ -45,6 +45,7 @@ describe('CustomersController', () => {
       controllers: [CustomersController],
       providers: [
         { provide: CustomersService, useValue: customersServiceMock },
+        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
       ],
     }).compile();
 

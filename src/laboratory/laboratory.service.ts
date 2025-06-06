@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
 import { Laboratory } from './entities/laboratory.entity';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class LaboratoryService {
@@ -12,6 +13,7 @@ export class LaboratoryService {
   constructor(
     @InjectRepository(Laboratory)
     private readonly laboratoryRepository: Repository<Laboratory>,
+    private readonly exceptionService: ExceptionService,
   ) {}
 
 
@@ -36,7 +38,7 @@ export class LaboratoryService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -60,7 +62,7 @@ export class LaboratoryService {
       
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
     
@@ -93,7 +95,7 @@ export class LaboratoryService {
 
     } catch (error) {
 
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
   }
 
@@ -124,7 +126,7 @@ export class LaboratoryService {
            
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
 
   }
@@ -156,27 +158,10 @@ export class LaboratoryService {
       
     } catch (error) {
       
-      this.handleDBError(error);
+      this.exceptionService.handleDBError(error);
       
     }
   }
 
-  /**
-   * Funcion que se encarga de manejar los errores de la base de datos
-   * @param error error a manejar
-   * @returns mensaje de error
-   */
-  private handleDBError(error: any): never {
-  
-    this.logger.error(error);
-  
-    if (error.code === '23505') {
-      
-      // Error de clave duplicada (Postgres)
-      throw new ConflictException('Ya existe un laboratorio con ese nombre');
-  
-    }
 
-    throw new InternalServerErrorException('error al procesar la solicitud, por favor intente más tarde');
-  }
 }

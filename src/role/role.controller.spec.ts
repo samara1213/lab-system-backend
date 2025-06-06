@@ -9,52 +9,60 @@ describe('RoleController', () => {
   let service: RoleService;
 
   const mockRoleService = {
-    create: jest.fn(dto => ({ status: 201, message: 'El registo de rol se ha creado correctamente' })),
-    findAll: jest.fn(() => ({ status: 200, data: [] })),
-    findOne: jest.fn(id => ({ status: 200, data: { rol_id: id } })),
-    update: jest.fn((id, dto) => ({ status: 200, message: 'El rol se ha actualizado correctamente' })),
-    remove: jest.fn(id => ({ status: 200, message: 'El rol se ha eliminado correctamente' })),
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RoleController],
       providers: [
-        {
-          provide: RoleService,
-          useValue: mockRoleService,
-        },
+        { provide: RoleService, useValue: mockRoleService },
       ],
     }).compile();
 
     controller = module.get<RoleController>(RoleController);
     service = module.get<RoleService>(RoleService);
+    jest.clearAllMocks();
   });
 
-  it('debería estar definido el controlador', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  it('debería crear un rol', () => {
-    const dto: CreateRoleDto = { rol_nombre: 'Admin', menus: ['uuid1', 'uuid2'] };
-    expect(controller.create(dto)).toEqual({ status: 201, message: 'El registo de rol se ha creado correctamente' });
+  it('debería crear un rol', async () => {
+    const dto: CreateRoleDto = { name: 'admin' } as any;
+    const expected = { status: 201, message: 'ok' };
+    mockRoleService.create.mockResolvedValue(expected);
+    const result = await controller.create(dto);
+    expect(result).toEqual(expected);
     expect(service.create).toHaveBeenCalledWith(dto);
   });
 
-  it('debería retornar todos los roles', () => {
-    expect(controller.findAll()).toEqual({ status: 200, data: [] });
+  it('debería retornar todos los roles', async () => {
+    const expected = { status: 200, data: [] };
+    mockRoleService.findAll.mockResolvedValue(expected);
+    const result = await controller.findAll();
+    expect(result).toEqual(expected);
     expect(service.findAll).toHaveBeenCalled();
   });
 
-  it('debería retornar un rol por id', () => {
-    expect(controller.findOne('uuid')).toEqual({ status: 200, data: { rol_id: 'uuid' } });
-    expect(service.findOne).toHaveBeenCalledWith('uuid');
+  it('debería retornar un rol por id', async () => {
+    const expected = { status: 200, data: { rol_id: '1' } };
+    mockRoleService.findOne.mockResolvedValue(expected);
+    const result = await controller.findOne('1');
+    expect(result).toEqual(expected);
+    expect(service.findOne).toHaveBeenCalledWith('1');
   });
 
-  it('debería actualizar un rol', () => {
-    const dto: UpdateRoleDto = { rol_nombre: 'Updated', menus: ['uuid1'] } as any;
-    expect(controller.update('uuid', dto)).toEqual({ status: 200, message: 'El rol se ha actualizado correctamente' });
-    expect(service.update).toHaveBeenCalledWith('uuid', dto);
+  it('debería actualizar un rol', async () => {
+    const dto: UpdateRoleDto = { name: 'nuevo' } as any;
+    const expected = { status: 200, message: 'ok' };
+    mockRoleService.update.mockResolvedValue(expected);
+    const result = await controller.update('1', dto);
+    expect(result).toEqual(expected);
+    expect(service.update).toHaveBeenCalledWith('1', dto);
   });
-
 });
