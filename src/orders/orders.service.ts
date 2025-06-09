@@ -6,6 +6,10 @@ import { Repository } from 'typeorm';
 import { FilterOrderDto } from './dto/filter-order.dto';
 import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
 import { ExceptionService } from '../exceptions/exception/exception.service';
+import { PdfService } from '../pdf/pdf.service';
+import { stat } from 'fs';
+import { EmailsService } from 'src/emails/emails.service';
+import { StorageService } from 'src/storage/storage.service';
 
 
 @Injectable()
@@ -16,6 +20,9 @@ export class OrdersService {
     @InjectRepository(Order) // Assuming Order is the entity for orders
     private readonly orderRepository: Repository<Order>,
     private readonly exceptionService: ExceptionService, 
+    private readonly pdfService: PdfService, 
+    private readonly emailsService: EmailsService,
+    private readonly storageService: StorageService,
   ) {}
   
   /**
@@ -333,12 +340,90 @@ export class OrdersService {
       // Usar helper para estructurar la respuesta
       const data = buildOrderResultsHierarchy(order);
       
+      delete data.results; // Eliminamos el campo results ya que no es necesario en la respuesta final
+      
+      // Generar PDF de resultados ontenemos la url
+      const urlResult = await this.pdfService.generateResult(data); // Generar PDF de resultados (opcional)
+    
+      // Actualizar la orden con la URL y el estado
+      order.ord_status = 'FINALIZADA';
+      order.ord_pdf_url = urlResult;
+
+      // actualizamos en la tabla de ordenes la url del pdf
+      await this.orderRepository.save(order);
+
       return {
         status: 200,
-        data,
+        message: 'Se ha generado el PDF de resultados correctamente',
       };
     } catch (error) {
       this.exceptionService.handleDBError(error);
+    }
+  }
+
+  /**
+   * Obtiene la URL del PDF y los datos del cliente para una orden finalizada específica
+   */
+  async getUrlResult(ord_id: string) {
+
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { ord_id: ord_id, ord_status: 'FINALIZADA' },
+        relations: ['customer'],
+        select: ['ord_pdf_url', 'ord_id', 'customer'],
+      });
+    
+      if (!order) throw new NotFoundException('No encontrada la orden o no está finalizada');
+    
+      return {
+        status: 200,
+        data: {
+          ord_pdf_url: order.ord_pdf_url,
+          fullName: `${order.customer?.cus_first_name ?? ''}
+                     ${order.customer?.cus_second_name ?? ''}
+                     ${order.customer?.cus_first_lastname ?? ''}
+                     ${order.customer?.cus_second_lastname ?? ''}`,
+          email: order.customer?.cus_email ?? '',
+      }    
+      };
+    } catch (error) {
+
+      this.exceptionService.handleDBError(error);
+    }
+  }
+
+
+  /**
+   * Envía un correo con los resultados de la orden especificada
+   * @param ord_id - ID de la orden cuyos resultados se enviarán por correo
+   * @returns Respuesta del proceso de envío de correo
+   */
+  async sendEmailResults(ord_id: string) {
+
+    try {
+
+      // Obtenemos los datos d ela orden para enviar el correo
+      const dataResult = await this.getUrlResult(ord_id);
+
+      // ontnemos la url prefirmada del PDF
+      const urlResult = await this.storageService.getSignedUrl(dataResult.data.ord_pdf_url);
+      
+      // enviamos el correo con los resultados
+      await this.emailsService.sendMailResults(
+        dataResult.data.email,
+        dataResult.data.fullName,
+        urlResult
+      );
+
+      return {
+        status: 200,
+        message: 'Se ha enviado el correo con los resultados correctamente',
+      }      
+      
+    } catch (error) {
+
+      this.exceptionService.handleDBError(error);
+      
     }
   }
   

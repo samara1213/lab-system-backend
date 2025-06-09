@@ -13,6 +13,8 @@ import { AllianceModule } from './alliance/alliance.module';
 import { OrdersModule } from './orders/orders.module';
 import { ResultsModule } from './results/results.module';
 import { ExceptionModule } from './exceptions/exception/exception.module';
+import { PdfModule } from './pdf/pdf.module';
+import { StorageModule } from './storage/storage.module';
 
 
 @Module({
@@ -28,7 +30,7 @@ import { ExceptionModule } from './exceptions/exception/exception.module';
       autoLoadEntities: true,
       synchronize: true
     }),    
-    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, 
+    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, 
   ],
   controllers: [],
   providers: [],

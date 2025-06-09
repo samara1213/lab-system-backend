@@ -5,6 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from './entities/result.entity';
 import { ExceptionService } from '../exceptions/exception/exception.service';
+import { OrdersService } from '../orders/orders.service';
+import { FilterOrderDto } from 'src/orders/dto/filter-order.dto';
 
 @Injectable()
 export class ResultsService {
@@ -13,6 +15,7 @@ export class ResultsService {
     @InjectRepository(Result)
     private readonly resultRepository: Repository<Result>,
     private readonly exceptionService: ExceptionService,
+    private readonly orderService: OrdersService, 
   ) {}
 
   /**
@@ -34,6 +37,12 @@ export class ResultsService {
 
       // Guardamos el resultado en la base de datos
       await this.resultRepository.save(result);
+
+      // cambiamos el estado de la orden a 'pendiente pdf'
+      await this.orderService.changeStatus({
+        ord_id: createResultDto.order,
+        ord_status: 'PENDIENTE PDF',
+      } as FilterOrderDto);
 
       return {
         status: 201,
@@ -97,6 +106,12 @@ export class ResultsService {
 
       // Guardamos el resultado actualizado en la base de datos
       await this.resultRepository.save(result);
+
+      // cambiamos el estado de la orden a 'pendiente pdf'
+      await this.orderService.changeStatus({
+        ord_id: updateResultDto.order,
+        ord_status: 'PENDIENTE PDF',
+      } as FilterOrderDto);
       
       return {
         status: 200,
