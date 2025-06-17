@@ -1,0 +1,14 @@
+DB_PASSWORD=pdLpNlOzClssJoORRmqCWoppgWYduhht
+DB_NAME=railway
+DB_HOST=shinkansen.proxy.rlwy.net
+DB_PORT=34889
+DB_USER=postgres
+PORT_SERVER=3000
+DB_SCHEMA=public
+JWT_SECRET=estaeslaclavesecretaparafirmarlostoken
+SERVICE_NOTIFICATION=gmail
+USER_NOTIFICATION=laboratoriosflorez@gmail.com
+PASSWORD_NOTIFICATION="zuhk acnr hfsy sgcu"
+SUPABASE_URL=https://svssrcuuchjreqxnolkg.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2c3NyY3V1Y2hqcmVxeG5vbGtnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTQ4NDI0OSwiZXhwIjoyMDY1MDYwMjQ5fQ.bZr-p0JCSKGGAx4F_EkeEeSQMwWndog1CXHVGlyNfUY
+SUPABASE_BUCKET=results

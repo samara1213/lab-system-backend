@@ -8,8 +8,8 @@ import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { PdfService } from '../pdf/pdf.service';
 import { stat } from 'fs';
-import { EmailsService } from 'src/emails/emails.service';
-import { StorageService } from 'src/storage/storage.service';
+import { EmailsService } from '../emails/emails.service';
+import { StorageService } from '../storage/storage.service';
 
 
 @Injectable()
@@ -320,6 +320,56 @@ export class OrdersService {
    * @param ord_id - ID de la orden
    * @returns Orden con exámenes, parámetros y resultados jerarquizados
    */
+  async generatePdfResults(ord_id: string) {
+    try {
+      
+      const { data } = await this.findOrderWithResults(ord_id); // Obtenemos la orden con resultados
+
+      // Generar PDF de resultados ontenemos la url
+      const urlResult = await this.pdfService.generateResult(data); // Generar PDF de resultados (opcional)
+    
+      // Actualizar la orden con la URL y el estado
+      data.ord_status = 'FINALIZADA';
+      data.ord_pdf_url = urlResult;
+
+      // actualizamos en la tabla de ordenes la url del pdf
+      await this.orderRepository.save(data);
+
+      return {
+        status: 200,
+        message: 'Se ha generado el PDF de resultados correctamente',
+      };
+    } catch (error) {
+      this.exceptionService.handleDBError(error);
+    }
+  }
+
+  /**
+   * Funcion que regresa los resultados de una orden por su ID
+   * @param ord_id id de la orden a buscar
+   * @returns resultados de la orden
+   */
+  async findResultsByOrder(ord_id: string) {
+    try {
+      
+      const { data } = await this.findOrderWithResults(ord_id); // Obtenemos la orden con resultados
+
+      return {
+        status: 200,
+        data,
+      };
+    } catch (error) {
+      this.exceptionService.handleDBError(error);
+    }
+  }
+
+
+    /**
+   * Busca una orden por su ID y retorna la orden junto con los resultados asociados,
+   * estructurando los resultados dentro de los parámetros de cada examen.
+   * @param ord_id - ID de la orden
+   * @returns Orden con exámenes, parámetros y resultados jerarquizados
+   */
   async findOrderWithResults(ord_id: string) {
     try {
       const order = await this.orderRepository.findOne({
@@ -341,21 +391,12 @@ export class OrdersService {
       const data = buildOrderResultsHierarchy(order);
       
       delete data.results; // Eliminamos el campo results ya que no es necesario en la respuesta final
-      
-      // Generar PDF de resultados ontenemos la url
-      const urlResult = await this.pdfService.generateResult(data); // Generar PDF de resultados (opcional)
-    
-      // Actualizar la orden con la URL y el estado
-      order.ord_status = 'FINALIZADA';
-      order.ord_pdf_url = urlResult;
-
-      // actualizamos en la tabla de ordenes la url del pdf
-      await this.orderRepository.save(order);
 
       return {
         status: 200,
-        message: 'Se ha generado el PDF de resultados correctamente',
+        data
       };
+
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }

@@ -55,8 +55,13 @@ export class OrdersController {
 
   
   @Get('results/:id')
-  findOrderWithResults(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.findOrderWithResults(id);
+  findResultsByOrder(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findResultsByOrder(id);
+  }
+
+  @Get('generates/results/:id')
+  generatePdfResults(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.generatePdfResults(id);
   }
   
   @Get('emails/:id')

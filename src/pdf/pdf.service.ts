@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as PDFDocument from 'pdfkit';
-import { ExceptionService } from 'src/exceptions/exception/exception.service';
-import { StorageService } from 'src/storage/storage.service';
+import { ExceptionService } from '../exceptions/exception/exception.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class PdfService {
