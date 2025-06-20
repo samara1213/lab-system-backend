@@ -62,22 +62,18 @@ export class MenuService {
    * @returns Listado de opciones de menú
    */
   async findAll() {
-    
     try {
-      
-      // se obtiene el listado de menus
-      const menus = await this.menuRepository.find();
-
+      // se obtiene el listado de menus con la relación padre
+      const menus = await this.menuRepository.find({
+        relations: ['men_parent'],
+      });
       // se regresa la respuesta
       return {
         status: 200, 
         data: menus ?? [],
       };
-
     } catch (error) {
-
       this.exceptionService.handleDBError(error);
-      
     }
   }
 
