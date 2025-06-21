@@ -61,19 +61,17 @@ export class RoleService {
    * @returns listado de roles
    */
   async findAll() {
-
     try {
-      
-      // Obtenemos el listado de roles
-      const roles = await this.roleRepository.find();
-      
+      // Obtenemos el listado de roles con las opciones de menú asignadas
+      const roles = await this.roleRepository.find({
+        relations: ['menus'],
+      });
+      // Solo retornamos el id de las opciones de menú asignadas como array de strings
       return {
         status: 200,
         data: roles ?? [],
       };
-
     } catch (error) {
-      
       this.exceptionService.handleDBError(error);
     }
   }
