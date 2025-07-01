@@ -13,7 +13,7 @@ export class ExceptionService {
     console.error('Database Error:', error);
     if (error.code === '23505') {
 
-      throw new ConflictException(error.code);
+      throw new ConflictException('el registro ya existe en la base de datos');
     
     } else if (error.status === 400 || error.status === 404) {
 
