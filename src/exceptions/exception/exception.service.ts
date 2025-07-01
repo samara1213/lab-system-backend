@@ -13,7 +13,7 @@ export class ExceptionService {
     console.error('Database Error:', error);
     if (error.code === '23505') {
 
-      throw new ConflictException(error.response.message);
+      throw new ConflictException(error.code);
     
     } else if (error.status === 400 || error.status === 404) {
 
