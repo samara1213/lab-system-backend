@@ -146,7 +146,8 @@ export class OrdersService {
           laboratory: { lab_id: filterOrderDto.lab_id },
           ord_status: filterOrderDto.ord_status,
         },
-        order: { ord_created_at: 'DESC' }
+        order: { ord_created_at: 'DESC' },
+        relations: ['customer'], // <-- Agrega la relación con customers
       });
 
       return {
