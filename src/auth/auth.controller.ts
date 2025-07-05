@@ -43,7 +43,7 @@ export class AuthController {
   }
   
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAuthDto: UpdateAuthDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAuthDto: UpdateAuthDto) {    
     return this.authService.update(id, updateAuthDto);
   }
   

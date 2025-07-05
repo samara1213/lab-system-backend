@@ -203,6 +203,7 @@ export class AuthService {
       // buscamos los ususarios por el id del laboratorio
       const users = await this.userRepository.find({
         where: { laboratory: { lab_id } },
+        relations: ['role'],
         });
       
       // regresamos la lista de usuarios
