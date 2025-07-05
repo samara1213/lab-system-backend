@@ -23,7 +23,8 @@ export function buildOrderResultsHierarchy(order: any) {
       return {
         ...param,
         result: result ? result.res_value : null,
-        observation: result ? result.res_observation : null
+        observation: result ? result.res_observation : null,
+        id_result: result ? result.res_id : null, // Agregar ID del resultado si existe
       };
     });
     // Retornar el examen con su lista de parámetros enriquecidos

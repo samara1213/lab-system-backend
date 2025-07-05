@@ -468,5 +468,32 @@ export class OrdersService {
       
     }
   }
+
+  /**
+   * Función para generar una URL prefirmada del PDF de resultados de una orden
+   * @param ord_id ID de la orden para generar la URL prefirmada del PDF
+   * @returns 
+   */
+  async generateUrlPrefirmate(ord_id: string) {
+
+    try {
+
+      // Obtenemos los datos d ela orden para enviar el correo
+      const dataResult = await this.getUrlResult(ord_id);
+
+      // ontnemos la url prefirmada del PDF
+      const urlResult = await this.storageService.getSignedUrl(dataResult.data.ord_pdf_url);
+      
+      return {
+        status: 200,
+        data: {ord_pdf_url: urlResult}
+      }      
+      
+    } catch (error) {
+
+      this.exceptionService.handleDBError(error);
+      
+    }
+  }
   
 }

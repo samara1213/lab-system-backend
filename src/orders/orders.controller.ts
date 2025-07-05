@@ -68,4 +68,9 @@ export class OrdersController {
   sendEmailResults(@Param('id', ParseUUIDPipe) id: string) {
     return this.ordersService.sendEmailResults(id);
   }
+
+  @Get('urlprefirmate/:id')
+  generateUrlPrefirmate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.generateUrlPrefirmate(id);
+  }
 }
