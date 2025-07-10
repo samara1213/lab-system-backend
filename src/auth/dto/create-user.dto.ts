@@ -16,4 +16,12 @@ export class CreateUserDto {
 
     @IsEmail()
     use_correo: string;
+
+    @IsNotEmpty()
+    @IsString()
+    role: string; // Debe ser un UUID (id del rol)
+
+    @IsNotEmpty()
+    @IsString()
+    laboratory: string; // Debe ser un UUID (id de la empresa)
 }

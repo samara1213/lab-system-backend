@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
@@ -8,8 +8,6 @@ import { Auth } from './decorators/auth.decorator';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUser } from './decorators/get-user.decorator';
 import { User } from './entities/user.entity';
-
-
 
 @Controller('auth')
 export class AuthController {
@@ -37,25 +35,17 @@ export class AuthController {
     return this.authService.refresToken(user);
   }
 
+  @Get(':laboratoryId')
+  @Auth()
+  findUsersByLaboratory(@Param('laboratoryId', ParseUUIDPipe) laboratoryId: string) {
 
-
-  @Get()
-  findAll() {
-    return this.authService.findAll();
+    return this.authService.findUsersByLaboratory(laboratoryId);  
   }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
-  }
-
+  
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
+  @Auth()
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAuthDto: UpdateAuthDto) {    
+    return this.authService.update(id, updateAuthDto);
   }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
-  }
+  
 }

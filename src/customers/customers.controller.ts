@@ -1,39 +1,34 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { GetUser } from 'src/auth/decorators/get-user.decorator';
-import { User } from 'src/auth/entities/user.entity';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { FilterCustomerDto } from './dto/filter-customer.dto';
 
+@Auth()
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
-  @Post()
-  @Auth()
-  create(@Body() createCustomerDto: CreateCustomerDto,
-  @GetUser() user: User) {
-    return this.customersService.create(createCustomerDto, user);
+  @Post() 
+  create(@Body() createCustomerDto: CreateCustomerDto  ) {
+    return this.customersService.create(createCustomerDto);
   }
 
-  @Get()
-  findAll() {
-    return this.customersService.findAll();
+  @Get('/companies/:id')
+  findAll(@Param('id', ParseUUIDPipe) idCompany: string) {
+    return this.customersService.findAllByCompany(idCompany);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.customersService.findOne(+id);
+  @Post('/searches')
+  findOneCustomer(@Body() filterCustomerDto: FilterCustomerDto) {
+    return this.customersService.findOneCustomer(filterCustomerDto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
-    return this.customersService.update(+id, updateCustomerDto);
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
+    return this.customersService.update(id, updateCustomerDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.customersService.remove(+id);
-  }
+
 }

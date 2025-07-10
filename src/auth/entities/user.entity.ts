@@ -1,5 +1,6 @@
-import { Company } from "src/companies/entities/company.entity";
+import { Laboratory } from "../../laboratory/entities/laboratory.entity";
 import { Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Role } from "../../role/entities/role.entity";
 
 @Entity('usuarios')
 export class User {
@@ -56,9 +57,12 @@ export class User {
     use_estado: string;
 
     @ManyToOne(
-        () => Company,
-        (company) => company.user,
-        {eager:  true}
+        () => Laboratory,
+        (laboratory) => laboratory.users
     )
-    company: Company;
+    laboratory: Laboratory;
+
+    // Relación: un usuario solo puede tener un rol
+    @ManyToOne(() => Role)
+    role: Role;
 }
