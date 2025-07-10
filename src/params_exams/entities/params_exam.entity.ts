@@ -23,7 +23,7 @@ export class ParamsExam {
     par_range: boolean;
 
     @Column('text', {
-        nullable: false
+        nullable: true
     })
     par_unit_extent: string;
 
