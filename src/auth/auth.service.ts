@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import * as crypto from 'crypto';
@@ -12,6 +12,9 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { JwtService } from '@nestjs/jwt';
 import { EmailsService } from 'src/emails/emails.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from 'src/role/entities/role.entity';
+import { Laboratory } from 'src/laboratory/entities/laboratory.entity';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +24,11 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
-    private readonly emailService: EmailsService
+    private readonly emailService: EmailsService,
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>,
+    @InjectRepository(Laboratory)
+    private readonly laboratoryRepository: Repository<Laboratory>
   ) { }
 
   /**
@@ -40,9 +47,20 @@ export class AuthService {
       // Obtenemos la contraseña
       const password = this.handleGeneratePassword();
 
+      // Creamos la referencia al rol usando solo el id recibido
+      const role = this.roleRepository.create({
+        rol_id: createUserDto.role
+      });
+
+      // se crea la referencia al laboratorio usando solo el id recibido
+      const laboratory = this.laboratoryRepository.create({
+        lab_id: createUserDto.laboratory});
+
       const user = this.userRepository.create({
         ...createUserDto,
         use_contrasena: bcrypt.hashSync(password, 10),
+        role: role,
+        laboratory: laboratory,
       })
 
       // se guarda el usuario en la base de datos
@@ -54,9 +72,11 @@ export class AuthService {
         `${user.use_primer_nombre} ${user.use_primer_apellido}`,
         password);
 
+      // respuesta del rpoceso de creacion
       return {
+        status: 201,
+        message: 'El registro de usuario se ha creado correctamente',        
 
-        'message': 'usuario creado correctamente'
       }
 
     } catch (error) {
@@ -72,7 +92,6 @@ export class AuthService {
    * @returns 
    */
   async login(loginUserDto: LoginUserDto) {
-
     // se desectrura el correo y contraseña
     const { use_correo, use_contrasena } = loginUserDto;
 
@@ -81,7 +100,13 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: { use_correo },
       select: { use_correo: true, use_contrasena: true, use_estado: true, use_primer_ingreso: true, use_id: true },
-      relations: ['company'],
+      relations: [
+        'laboratory',
+        'role',
+        'role.menus',
+        'role.menus.children',
+        'role.menus.children.children',
+      ],
     })
 
     // validamos que el ussuario exista
@@ -95,11 +120,14 @@ export class AuthService {
     // eliminamos la contraseña de la respuesta
     delete user.use_contrasena;
 
+    // --- Agrupar menús en estructura jerárquica ---
+    if (user.role && Array.isArray(user.role.menus)) {
+      user.role.menus = this.buildMenuTree(user.role.menus);
+    }
+    // --- Fin agrupación menús ---
     return {
-
       data: { ...user },
       token: this.getJwtToken({ use_id: user.use_id }),
-
     }
   }
 
@@ -118,8 +146,7 @@ export class AuthService {
       // consutamos el ususario si existe para verificar si la contraseña es valida
       const user = await this.userRepository.findOne({
         where: { use_correo },
-        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true},
-        relations: ['company']
+        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true}  
       });
 
       // validamos si existe el ususario
@@ -140,8 +167,8 @@ export class AuthService {
       await this.userRepository.save(updateUser);
 
       return {
-
-        'message': 'Su cambio de contraseña fue exitoso'
+        status: 200,
+        message: 'La contraseña se ha cambiado correctamente',     
       }
 
     } catch (error) {
@@ -164,20 +191,92 @@ export class AuthService {
   }
 
 
-  findAll() {
-    return `This action returns all auth`;
+  /**
+   * Lista todos los usuarios de un laboratorio por su id
+   * @param lab_id id del laboratorio
+   * @returns lista de usuarios
+   */
+  async findUsersByLaboratory(lab_id: string) {
+
+    try {
+      
+      // buscamos los ususarios por el id del laboratorio
+      const users = await this.userRepository.find({
+        where: { laboratory: { lab_id } },
+        relations: ['role'],
+        });
+      
+      // regresamos la lista de usuarios
+      return {
+        status: 200,
+        data: users ?? [],
+      };
+    
+    } catch (error) {
+    
+      this.handleExceptions(error);
+    }
+  
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+  /**
+   * funcion que se encarga de actualizar un usuario
+   * @param id id del usuario a actualizar
+   * @param updateUserDto datos a actualizar
+   * @returns 
+   */
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    
+    try {
+      
+      // Si se envía un nuevo rol, creamos la referencia
+      let role = undefined;
+    
+      // validamos si se envio el rol para actualizarlo
+      if (updateUserDto.role) {
+        role = this.roleRepository.create({
+          rol_id: updateUserDto.role
+        });
+      }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+      // Si se envía un nuevo laboratorio, creamos la referencia
+      let laboratory = undefined;
+      if (updateUserDto.laboratory) {
+        laboratory = this.laboratoryRepository.create({
+          lab_id: updateUserDto.laboratory
+        });
+      }
+      // Preparamos el objeto a actualizar
+      const updateData: any = {
+        ...updateUserDto,
+      };
+
+      // Si se envió un nuevo rol o laboratorio, los agregamos al objeto de actualización
+      if (role) updateData.role = role;
+      if (laboratory) updateData.laboratory = laboratory;
+
+      // Preload busca el usuario y aplica los cambios
+      const user = await this.userRepository.preload({
+        use_id: id,
+        ...updateData,
+      });
+
+      // validamos si el ussuario existe
+      if (!user) throw new NotFoundException('El usuario no existe');
+      
+      // Guardamos los cambios en la base de datos
+      await this.userRepository.save(user);
+
+      // Retornamos una respuesta de éxito
+      return {
+        status: 200,
+        message: 'Usuario actualizado correctamente',
+      };
+
+    } catch (error) {
+      this.handleExceptions(error);
+    }
   }
 
 
@@ -207,9 +306,7 @@ export class AuthService {
     const password = Array.from(crypto.randomBytes(12))
       .map(byte => chars[byte % chars.length])
       .join('');
-
-    console.log('contraseña' + password);
-
+          
     return password;
 
   }
@@ -227,4 +324,23 @@ export class AuthService {
     // error no encontrado
     throw new InternalServerErrorException('Error del sistema')
   }
+
+  // Utilidad para construir el árbol de menús jerárquico
+  private buildMenuTree(menus: any[]): any[] {
+    const menuMap = new Map();
+    menus.forEach(menu => {
+      menu.children = menu.children || [];
+      menuMap.set(menu.men_id, menu);
+    });
+    const tree = [];
+    menus.forEach(menu => {
+      if (menu.men_parent && menuMap.has(menu.men_parent.men_id)) {
+        menuMap.get(menu.men_parent.men_id).children.push(menu);
+      } else if (menu.men_level === 1) {
+        tree.push(menu);
+      }
+    });
+    return tree;
+  }
+
 }

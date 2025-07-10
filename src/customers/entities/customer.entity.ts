@@ -1,80 +1,57 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { Laboratory } from '../../laboratory/entities/laboratory.entity';
+import { Order } from '../../orders/entities/order.entity';
 
 @Entity('customers')
-@Unique(['cus_numero_doc', 'cus_companie']) // Clave única compuesta
+@Unique(['cus_document_number', 'laboratory'])
 export class Customer {
 
     @PrimaryGeneratedColumn('uuid')
     cus_id: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_tipo_doc: string;
+    @Column('text', { nullable: false })
+    cus_document_type: string;
 
-    @Column('text',{
-        nullable: false   
-    })
-    cus_numero_doc:  string;
+    @Column('text', { nullable: false })
+    cus_document_number: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_primer_apellido: string;
+    @Column('text', { nullable: false })
+    cus_first_lastname: string;
 
     @Column('text')
-    cus_segundo_apellido: string;
+    cus_second_lastname: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_primer_nombre: string;
+    @Column('text', { nullable: false })
+    cus_first_name: string;
 
     @Column('text')
-    cus_segundo_nombre: string;
+    cus_second_name: string;
 
     @Column('text')
-    cus_direccion: string;
+    cus_address: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_genero:  string;
+    @Column('text', { nullable: false })
+    cus_gender: string;
 
     @Column('date')
-    cus_fecha_nacimiento: Date;
+    cus_birthdate: Date;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_telefono: string;
+    @Column('text', { nullable: false })
+    cus_phone: string;
 
-    @Column('text',{
-        nullable: false
-    })
-    cus_correo: string;
+    @Column('text', { nullable: false })
+    cus_email: string;
 
-    @Column('text',{
-        nullable: false
-    })
+    @CreateDateColumn({ type: 'timestamp' })
+    cus_created_at: Date;
+
+    @UpdateDateColumn({ type: 'timestamp' })
+    cus_updated_at: Date;
+
+    @ManyToOne(() => Laboratory, (laboratory) => laboratory.customers, { nullable: false })
     @Index()
-    cus_companie: string
+    laboratory: Laboratory;
 
-    @CreateDateColumn({
-        type: 'timestamp'
-    })
-    cus_fecha_creacion: Date;
-
-    @Column('text')
-    cus_usuario_creacion: string;
-
-    @UpdateDateColumn({
-        type: 'timestamp'
-    })
-    cus_fecha_modificacion: Date;
-
-    @Column('text',{
-        nullable: true
-    })
-    cus_usuario_modificacion: string;
+    @OneToMany(() => Order, (order) => order.customer)
+    orders: Order[];
 }

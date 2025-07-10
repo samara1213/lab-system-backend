@@ -2,65 +2,63 @@ import { Type } from "class-transformer";
 import { IsDate, IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 
 export class CreateCustomerDto {
-
     @IsString()
     @IsNotEmpty()
     @MinLength(1)
-    cus_tipo_doc: string;
+    cus_document_type: string;
 
     @IsString()
     @IsNotEmpty()
     @MinLength(1)
     @MaxLength(15)
-    cus_numero_doc:  string; 
+    cus_document_number: string;
 
     @IsString()
     @IsNotEmpty()
     @MinLength(1)
     @MaxLength(25)
-    cus_primer_apellido: string;
+    cus_first_lastname: string;
 
     @IsOptional()
-    cus_segundo_apellido: string;
+    cus_second_lastname?: string;
 
     @IsString()
     @IsNotEmpty()
     @MinLength(1)
     @MaxLength(25)
-    cus_primer_nombre: string;
+    cus_first_name: string;
 
     @IsOptional()
-    cus_segundo_nombre: string;
+    cus_second_name?: string;
 
     @IsString()
     @IsNotEmpty()
     @MinLength(5)
-    cus_direccion: string;
+    cus_address: string;
     
     @IsString()
     @IsNotEmpty()
     @MinLength(1)
     @MaxLength(2)
-    cus_genero:  string;
+    cus_gender: string;
 
-    @Type(() => Date) // Convierte automáticamente el valor recibido a tipo Date
-    @IsDate() // Valida que el campo sea una fecha válida
-    cus_fecha_nacimiento: Date;
+    @Type(() => Date)
+    @IsDate()
+    cus_birthdate: Date;
 
     @IsString()
     @IsNotEmpty()
     @MinLength(5)
     @MaxLength(10)
-    cus_telefono: string; 
+    cus_phone: string;
 
     @IsEmail()
     @IsNotEmpty()
-    cus_correo: string; 
-    
+    cus_email: string;
+
     @IsUUID()
     @IsNotEmpty()
-    cus_companie: string;
-     
+    laboratory: string;
 }
 
 

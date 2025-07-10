@@ -3,6 +3,8 @@ import * as nodemailer from 'nodemailer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { templateEmailWelcom } from './templates/templateEmailWelcom';
+import { templateEmailResult } from './templates/templateEmailResult';
+import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class EmailsService {
@@ -11,7 +13,9 @@ export class EmailsService {
 
 
   // configuracion de parametros de envio de  correo
-  constructor(){
+  constructor(
+    private readonly exceptionService: ExceptionService,
+  ){
 
     this.transporter = nodemailer.createTransport({
 
@@ -54,6 +58,31 @@ export class EmailsService {
     } catch (error) {
 
       console.error('Error enviando correo: ', error);
+    }
+  }
+
+  /**
+   * Envía un correo con el enlace de descarga de los resultados de laboratorio
+   * @param to Correo del usuario
+   * @param name Nombre del usuario
+   * @param urlResult URL de descarga de resultados
+   */
+  async sendMailResults(to: string, name: string, urlResult: string) {
+    const htmlContentTemplate = templateEmailResult(urlResult, name);
+    const mailOptions = {
+      from: process.env.USER_NOTIFICATION,
+      to,
+      subject: 'Resultados de laboratorio disponibles',
+      html: htmlContentTemplate,
+    };
+
+    try {
+
+      const info = await this.transporter.sendMail(mailOptions);
+      
+    } catch (error) {
+      
+      this.exceptionService.handleDBError(error);
     }
   }
 
