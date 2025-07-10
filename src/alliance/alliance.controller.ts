@@ -2,7 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from
 import { AllianceService } from './alliance.service';
 import { CreateAllianceDto } from './dto/create-alliance.dto';
 import { UpdateAllianceDto } from './dto/update-alliance.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('alliance')
 export class AllianceController {
   constructor(private readonly allianceService: AllianceService) {}

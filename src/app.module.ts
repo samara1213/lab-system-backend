@@ -28,7 +28,7 @@ import { StorageModule } from './storage/storage.module';
       password: process.env.DB_PASSWORD,
       schema  : process.env.DB_SCHEMA,
       autoLoadEntities: true,
-      synchronize: true
+      synchronize: false
     }),    
     AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, 
   ],

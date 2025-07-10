@@ -2,7 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from
 import { ResultsService } from './results.service';
 import { CreateResultDto } from './dto/create-result.dto';
 import { UpdateResultDto } from './dto/update-result.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('results')
 export class ResultsController {
   constructor(private readonly resultsService: ResultsService) {}

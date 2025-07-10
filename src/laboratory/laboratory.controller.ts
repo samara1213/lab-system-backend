@@ -4,8 +4,8 @@ import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('laboratory')
-//@Auth()
 export class LaboratoryController {
   constructor(private readonly laboratoryService: LaboratoryService) {}
 

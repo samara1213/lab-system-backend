@@ -9,13 +9,12 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUser } from './decorators/get-user.decorator';
 import { User } from './entities/user.entity';
 
-
-
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('/register')
+  @Auth()
   create(@Body() createUserDto: CreateUserDto) {
     return this.authService.create(createUserDto);
   }
@@ -37,12 +36,14 @@ export class AuthController {
   }
 
   @Get(':laboratoryId')
+  @Auth()
   findUsersByLaboratory(@Param('laboratoryId', ParseUUIDPipe) laboratoryId: string) {
 
     return this.authService.findUsersByLaboratory(laboratoryId);  
   }
   
   @Patch(':id')
+  @Auth()
   update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAuthDto: UpdateAuthDto) {    
     return this.authService.update(id, updateAuthDto);
   }

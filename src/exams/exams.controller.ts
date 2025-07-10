@@ -2,7 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestj
 import { ExamsService } from './exams.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('exams')
 export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}

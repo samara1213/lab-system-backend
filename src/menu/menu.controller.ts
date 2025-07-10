@@ -2,7 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe, ParseIntPipe 
 import { MenuService } from './menu.service';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('menu')
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}

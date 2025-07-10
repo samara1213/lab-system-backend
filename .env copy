@@ -1,8 +1,8 @@
-DB_PASSWORD=pdLpNlOzClssJoORRmqCWoppgWYduhht
-DB_NAME=railway
-DB_HOST=shinkansen.proxy.rlwy.net
-DB_PORT=34889
-DB_USER=postgres
+DB_PASSWORD=$Samara1213*
+DB_NAME=postgres
+DB_HOST=aws-0-us-east-1.pooler.supabase.com
+DB_PORT=6543
+DB_USER=postgres.svssrcuuchjreqxnolkg
 PORT_SERVER=3000
 DB_SCHEMA=public
 JWT_SECRET=estaeslaclavesecretaparafirmarlostoken

@@ -2,7 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseUUIDPipe } from
 import { RoleService } from './role.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 
+@Auth()
 @Controller('role')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
