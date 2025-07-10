@@ -13,9 +13,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     })
   );
-
-  console.log(process.env.PORT);
+  
   await app.listen(process.env.PORT);
+  console.log(`servidor corriendo por el puerto: ${process.env.PORT}`);
 
 }
 bootstrap();
