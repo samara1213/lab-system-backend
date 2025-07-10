@@ -7,15 +7,16 @@ export class CreateParamsExamDto {
     @MaxLength(50)
     par_name: string;
 
-    @IsNotEmpty()
-    par_default_value: string;
+    @IsString()
+    @IsOptional()
+    par_default_value?: string;
     
     @IsBoolean()
     par_range: boolean;
     
     @IsString()
-    @IsNotEmpty()
-    par_unit_extent: string;
+    @IsOptional()
+    par_unit_extent?: string;
     
     @IsNumber()
     @IsOptional()
