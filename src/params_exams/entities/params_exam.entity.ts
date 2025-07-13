@@ -87,6 +87,12 @@ export class ParamsExam {
     })
     par_state: string;
 
+    @Column('int', {
+        default: 0,
+        nullable: false,
+    })
+    par_order: number;
+
     @ManyToOne(() => Exam, { nullable: false })
     exam: Exam;
 }
