@@ -49,4 +49,8 @@ export class CreateParamsExamDto {
     @IsUUID()
     @IsNotEmpty()
     exam: string;
+
+    @IsNumber()
+    @IsOptional()
+    par_order?: number;
 }

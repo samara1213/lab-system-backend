@@ -93,32 +93,40 @@ export class PdfService {
       doc.moveDown(0.5);
       // Filas de resultados con borde de tabla más delgado
       doc.font('Helvetica').fillColor('black');
-      exam.parameters?.forEach((param: any) => {
+      // Ordenar los parámetros por par_order antes de agregarlos al PDF
+      const sortedParameters = exam.parameters?.slice().sort((a: any, b: any) => (a.par_order ?? 0) - (b.par_order ?? 0));
+      sortedParameters?.forEach((param: any) => {
         const rowY = doc.y;
-        doc.save();   
-        doc.text(param.par_name, 45, rowY + 4, { width: 135 });
-        doc.text(param.result ?? '-', 185, rowY + 4, { width: 95 });
-        doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95 });
-        // Ajuste de valores de referencia
-        let referencia = '-';
-        if (param.par_range) {
-          const minMan = param.par_min_man ?? '';
-          const maxMan = param.par_max_man ?? '';
-          const minWoman = param.par_min_woman ?? '';
-          const maxWoman = param.par_max_woman ?? '';
-          const minChild = param.par_min_child ?? '';
-          const maxChild = param.par_max_child ?? '';
-          referencia = '';
-          if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
-          if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
-          if (minChild !== '' && maxChild !== '') referencia += `Ñiños: ${minChild} - ${maxChild}`;
-          referencia = referencia.trim();
+        // Si el nombre del parámetro inicia con '*', centrado y en negrita, sin mostrar valores
+        if (typeof param.par_name === 'string' && param.par_name.trim().startsWith('*')) {
+          doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
+          doc.moveDown(0.1);
         } else {
-          referencia = param.par_reference_value ?? '-';
+          doc.save();   
+          doc.text(param.par_name, 45, rowY + 4, { width: 135 });
+          doc.text(param.result ?? '-', 185, rowY + 4, { width: 95 });
+          doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95 });
+          // Ajuste de valores de referencia
+          let referencia = '-';
+          if (param.par_range) {
+            const minMan = param.par_min_man ?? '';
+            const maxMan = param.par_max_man ?? '';
+            const minWoman = param.par_min_woman ?? '';
+            const maxWoman = param.par_max_woman ?? '';
+            const minChild = param.par_min_child ?? '';
+            const maxChild = param.par_max_child ?? '';
+            referencia = '';
+            if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
+            if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
+            if (minChild !== '' && maxChild !== '') referencia += `Ñiños: ${minChild} - ${maxChild}`;
+            referencia = referencia.trim();
+          } else {
+            referencia = param.par_reference_value ?? '-';
+          }
+          doc.text(referencia, 385, rowY + 4, { width: 155 });
+          doc.restore();
+          doc.moveDown(0.1);
         }
-        doc.text(referencia, 385, rowY + 4, { width: 155 });
-        doc.restore();
-        doc.moveDown(0.1);
       });
       doc.moveDown();
     });
