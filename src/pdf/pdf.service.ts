@@ -102,6 +102,7 @@ export class PdfService {
           doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
           doc.moveDown(0.1);
         } else {
+          doc.font('Helvetica'); // Solo los que inician con * quedan en negrita, el resto normal
           doc.save();   
           doc.text(param.par_name, 45, rowY + 4, { width: 135 });
           doc.text(param.result ?? '-', 185, rowY + 4, { width: 95 });
