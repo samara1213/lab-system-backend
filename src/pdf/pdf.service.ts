@@ -132,6 +132,34 @@ export class PdfService {
       doc.moveDown();
     });
 
+    // Agregar archivos adjuntos al PDF antes del pie de página
+    if (orderResults.attachedFiles && Array.isArray(orderResults.attachedFiles) && orderResults.attachedFiles.length > 0) {
+      doc.addPage();      
+      doc.moveDown(1);
+      for (const attached of orderResults.attachedFiles) {
+        try {
+          // Obtener el buffer del archivo adjunto desde el storage
+          const bufferFile = await this.storageService.getPrivateImageBuffer(attached.att_file_url);
+          // Detectar si el archivo es PDF o imagen por la extensión
+          const ext = attached.att_file_url.split('.').pop()?.toLowerCase();
+          if (ext === 'pdf') {
+            // Si es PDF, agregar cada página como imagen (requiere pdf-lib o similar)
+            // Aquí solo agregamos una nota, puedes integrar pdf-lib para renderizar páginas
+            doc.fontSize(12).fillColor('black').text('Archivo PDF adjunto:', { align: 'center' });
+            doc.fontSize(10).fillColor('blue').text(attached.att_file_url, { align: 'center', link: attached.att_file_url, underline: true });
+            doc.moveDown(2);
+          } else {
+            // Si es imagen, agregar al PDF
+            doc.image(bufferFile, { fit: [500, 500], align: 'center' });
+            doc.moveDown(1);
+          }
+        } catch (e) {          
+          doc.fontSize(10).fillColor('red').text(`No se pudo cargar el archivo adjunto: ${attached.att_file_url}`, { align: 'center' });
+          doc.moveDown(1);
+        }
+      }
+    }
+
     // Pie de página
     doc.moveDown(2);
     doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', { align: 'center' });
@@ -173,5 +201,25 @@ export class PdfService {
         this.exceptionService.handleDBError(error);
     }
 
+  }
+
+  /**
+   * Recibe un archivo, lo sube al storage y retorna la url y el nombre original
+   * @param file archivo recibido
+   * @returns objeto con url y nombre
+   */
+  async uploadFileBuffer(file: Express.Multer.File): Promise<string> {
+    try {
+      // Define el nombre del archivo para el storage
+      const fileName = `adjuntos/${Date.now()}-${file.originalname}`;
+      // Sube el archivo al storage
+      const urlResult = await this.storageService.uploadFile(file.buffer, fileName);
+
+      return urlResult;
+
+    } catch (error) {
+      this.exceptionService.handleDBError(error);
+
+    }
   }
 }
