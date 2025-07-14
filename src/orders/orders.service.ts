@@ -383,6 +383,7 @@ export class OrdersService {
           'results',
           'results.exam',
           'results.param',
+          'attachedFiles', 
         ],
       });
       if (!order) {

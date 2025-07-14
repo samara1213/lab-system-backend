@@ -3,6 +3,7 @@ import { Laboratory } from '../../laboratory/entities/laboratory.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Exam } from '../../exams/entities/exam.entity';
 import { Result } from '../../results/entities/result.entity';
+import { Attached } from '../../attached/entities/attached.entity';
 
 @Entity('orders')
 export class Order {
@@ -51,4 +52,7 @@ export class Order {
 
   @Column('text', { nullable: true })
   ord_pdf_url: string;
+
+  @OneToMany(() => Attached, attached => attached.order)
+  attachedFiles: Attached[];
 }
