@@ -15,6 +15,7 @@ import { ResultsModule } from './results/results.module';
 import { ExceptionModule } from './exceptions/exception/exception.module';
 import { PdfModule } from './pdf/pdf.module';
 import { StorageModule } from './storage/storage.module';
+import { AttachedModule } from './attached/attached.module';
 
 
 @Module({
@@ -30,7 +31,7 @@ import { StorageModule } from './storage/storage.module';
       autoLoadEntities: true,
       synchronize: false
     }),    
-    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, 
+    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, AttachedModule, 
   ],
   controllers: [],
   providers: [],
