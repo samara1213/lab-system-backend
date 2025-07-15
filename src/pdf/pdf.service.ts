@@ -12,7 +12,7 @@ export class PdfService {
   ){}
 
   async generateExamResultsPdf(orderResults: any): Promise<Buffer> {
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const doc = new PDFDocument({ margin: 40, size: 'letter' });
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
 
@@ -65,11 +65,39 @@ export class PdfService {
 
     doc.font('Helvetica-Bold').text('Fecha Generacion:', 310, 220); doc.font('Helvetica').text(new Date().toLocaleString(), 430, 220);
 
-    doc.moveDown(1);
+    doc.moveDown(1);    
+    // Consultar los adjuntos antes de recorrer los exámenes y obtener sus buffers
+    const attachedFiles = Array.isArray(orderResults.attachedFiles) ? orderResults.attachedFiles : [];
+    const attachedBuffers: { file: any, buffer: Buffer | null, ext: string }[] = [];
+    for (const attached of attachedFiles) {
+      let buffer = null;
+      let ext = '';
+      try {
+        buffer = await this.storageService.getPrivateImageBuffer(attached.att_file_url);
+        ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
+      } catch (e) {
+        buffer = null;
+        ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
+      }
+      attachedBuffers.push({ file: attached, buffer, ext });
+    }
 
+    // Ordenar los exámenes para que hemograma siempre sea el primero
+    let exams = orderResults.exams ?? [];
+    if (exams.length > 1) {
+      const hemogramaIndex = exams.findIndex((ex: any) => typeof ex.exa_name === 'string' && ex.exa_name.toLowerCase().includes('hemograma'));
+      if (hemogramaIndex > -1) {
+        const hemogramaExam = exams[hemogramaIndex];
+        exams = exams.filter((_, idx) => idx !== hemogramaIndex);
+        exams = [hemogramaExam, ...exams];
+      }
+    }
     // Resultados por examen/sección
-    orderResults.exams?.forEach((exam: any) => {
+    exams.forEach((exam: any) => {
       // Título de sección con fondo azul
+      if (doc.y + 40 > doc.page.height) {
+        doc.addPage();
+      }
       const sectionY = doc.y;
       doc.save();
       doc.rect(40, sectionY, 500, 20).fill('#0074b7');
@@ -93,9 +121,44 @@ export class PdfService {
       doc.moveDown(0.5);
       // Filas de resultados con borde de tabla más delgado
       doc.font('Helvetica').fillColor('black');
+      if (exam.exa_name.toLowerCase().includes('hemograma')) {        
+        attachedBuffers.forEach(({ file, buffer, ext }) => {
+          // Si es imagen, ubicar lo más a la izquierda respetando el margen
+          const marginLeft = doc.page.margins.left;
+          const fitWidth = 700;
+          const fitHeight = 290;
+          const yInicial = doc.y;
+          doc.image(buffer, marginLeft, yInicial, { fit: [fitWidth, fitHeight] });
+          // Actualiza manualmente doc.y para que el pie de página quede debajo de la imagen
+          doc.y = yInicial + fitHeight;
+          doc.moveDown(1);
+        });
+      }
       // Ordenar los parámetros por par_order antes de agregarlos al PDF
       const sortedParameters = exam.parameters?.slice().sort((a: any, b: any) => (a.par_order ?? 0) - (b.par_order ?? 0));
-      sortedParameters?.forEach((param: any) => {
+      // Encabezado de tabla para reutilizar en saltos de página
+      const pintarEncabezadoTabla = () => {
+        const tableY = doc.y;
+        doc.save();
+        doc.rect(40, tableY, 500, 18).stroke();
+        doc.rect(40, tableY, 140, 18).stroke();
+        doc.rect(180, tableY, 100, 18).stroke();
+        doc.rect(280, tableY, 100, 18).stroke();
+        doc.rect(380, tableY, 160, 18).stroke();
+        doc.fillColor('#0074b7').font('Helvetica-Bold');
+        doc.text('Examen', 45, tableY + 4, { width: 135, align: 'center' });
+        doc.text('Resultado', 185, tableY + 4, { width: 95, align: 'center' });
+        doc.text('Unidades', 285, tableY + 4, { width: 95, align: 'center' });
+        doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
+        doc.restore();
+        doc.moveDown(0.5);
+      };
+      sortedParameters?.forEach((param: any, idx: number) => {       
+        // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
+        if ((doc.y + 40) > (doc.page.height - 40)) {     
+          doc.addPage();
+          pintarEncabezadoTabla();
+        }
         const rowY = doc.y;
         // Si el nombre del parámetro inicia con '*', centrado y en negrita, sin mostrar valores
         if (typeof param.par_name === 'string' && param.par_name.trim().startsWith('*')) {
@@ -131,35 +194,7 @@ export class PdfService {
       });
       doc.moveDown();
     });
-
-    // Agregar archivos adjuntos al PDF antes del pie de página
-    if (orderResults.attachedFiles && Array.isArray(orderResults.attachedFiles) && orderResults.attachedFiles.length > 0) {
-      doc.addPage();      
-      doc.moveDown(1);
-      for (const attached of orderResults.attachedFiles) {
-        try {
-          // Obtener el buffer del archivo adjunto desde el storage
-          const bufferFile = await this.storageService.getPrivateImageBuffer(attached.att_file_url);
-          // Detectar si el archivo es PDF o imagen por la extensión
-          const ext = attached.att_file_url.split('.').pop()?.toLowerCase();
-          if (ext === 'pdf') {
-            // Si es PDF, agregar cada página como imagen (requiere pdf-lib o similar)
-            // Aquí solo agregamos una nota, puedes integrar pdf-lib para renderizar páginas
-            doc.fontSize(12).fillColor('black').text('Archivo PDF adjunto:', { align: 'center' });
-            doc.fontSize(10).fillColor('blue').text(attached.att_file_url, { align: 'center', link: attached.att_file_url, underline: true });
-            doc.moveDown(2);
-          } else {
-            // Si es imagen, agregar al PDF
-            doc.image(bufferFile, { fit: [500, 500], align: 'center' });
-            doc.moveDown(1);
-          }
-        } catch (e) {          
-          doc.fontSize(10).fillColor('red').text(`No se pudo cargar el archivo adjunto: ${attached.att_file_url}`, { align: 'center' });
-          doc.moveDown(1);
-        }
-      }
-    }
-
+    
     // Pie de página
     doc.moveDown(2);
     doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', { align: 'center' });
