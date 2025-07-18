@@ -38,6 +38,9 @@ export class Laboratory {
     @Column('text')
     lab_legal_representative: string;
 
+    @Column('text', { nullable: true })
+    lab_signature: string;
+
     @CreateDateColumn({ type: 'timestamp' })
     lab_created_at: Date;
 
