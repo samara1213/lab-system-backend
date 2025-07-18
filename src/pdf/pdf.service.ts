@@ -16,6 +16,16 @@ export class PdfService {
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
 
+    // Obtener buffer de la firma si existe
+    let bufferFirma: Buffer | null = null;
+    if (orderResults.laboratory?.lab_signature) {
+      try {
+        bufferFirma = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_signature}`);
+      } catch (e) {
+        bufferFirma = null;
+      }
+    }
+
     // Encabezado con logo y datos del laboratorio
     if (orderResults.laboratory?.lab_logo) {
       try {
@@ -37,13 +47,22 @@ export class PdfService {
     
     doc.moveDown(5);
 
+    // Ajuste: Mostrar fechas con zona horaria America/Bogota
+    // Restar 5 horas a la fecha de ingreso
+    let fechaIngreso = '';
+    if (orderResults.ord_created_at) {
+      const fechaOriginal = new Date(orderResults.ord_created_at);
+      fechaOriginal.setHours(fechaOriginal.getHours() - 5);
+      fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+    }    
+    const fechaGeneracion = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
     // Datos del paciente y orden en dos columnas
     doc.fontSize(11).font('Helvetica-Bold');
     doc.text('Paciente:', 40, 140); doc.font('Helvetica').text(`${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`, 110, 140);
     doc.font('Helvetica-Bold').text('N° de orden:', 310, 140); doc.font('Helvetica').text(`${orderResults.ord_code || ''}`, 430, 140);
 
     doc.font('Helvetica-Bold').text('Doc. Id:', 40, 160); doc.font('Helvetica').text(`${orderResults.customer?.cus_document_number || ''}`, 110, 160);
-    doc.font('Helvetica-Bold').text('Fecha de Ingreso:', 310, 160); doc.font('Helvetica').text(`${orderResults.ord_created_at ? new Date(orderResults.ord_created_at).toLocaleString() : ''}`, 430, 160);
+    doc.font('Helvetica-Bold').text('Fecha de Ingreso:', 310, 160); doc.font('Helvetica').text(`${fechaIngreso}`, 430, 160);
 
     // Calcula edad
     const birth = orderResults.customer?.cus_birthdate ? new Date(orderResults.customer.cus_birthdate) : null;
@@ -63,8 +82,8 @@ export class PdfService {
     doc.font('Helvetica-Bold').text('Medico:', 40, 200); // Puedes agregar el nombre si lo tienes
     doc.font('Helvetica-Bold').text('Pag No.', 310, 200); doc.font('Helvetica').text('1 de 1', 430, 200);
 
-    doc.font('Helvetica-Bold').text('Fecha Generacion:', 310, 220); doc.font('Helvetica').text(new Date().toLocaleString(), 430, 220);
-
+    doc.font('Helvetica-Bold').text('Fecha Generacion:', 310, 220); doc.font('Helvetica').text(fechaGeneracion, 430, 220);
+  
     doc.moveDown(1);    
     // Consultar los adjuntos antes de recorrer los exámenes y obtener sus buffers
     const attachedFiles = Array.isArray(orderResults.attachedFiles) ? orderResults.attachedFiles : [];
@@ -95,7 +114,7 @@ export class PdfService {
     // Resultados por examen/sección
     exams.forEach((exam: any) => {
       // Título de sección con fondo azul
-      if (doc.y + 40 > doc.page.height) {
+      if (doc.y + 90 > doc.page.height) {
         doc.addPage();
       }
       const sectionY = doc.y;
@@ -154,8 +173,13 @@ export class PdfService {
         doc.moveDown(0.5);
       };
       sortedParameters?.forEach((param: any, idx: number) => {       
+        // No agregar si el resultado es '-' o vacío
+        const resultado = param.result ?? '-';
+        if (resultado === '-' || resultado === '' || resultado === null) {
+          return;
+        }
         // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
-        if ((doc.y + 40) > (doc.page.height - 40)) {     
+        if ((doc.y + 90) > (doc.page.height - 90)) {     
           doc.addPage();
           pintarEncabezadoTabla();
         }
@@ -165,10 +189,23 @@ export class PdfService {
           doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
           doc.moveDown(0.1);
         } else {
-          doc.font('Helvetica'); // Solo los que inician con * quedan en negrita, el resto normal
-          doc.save();   
-          doc.text(param.par_name, 45, rowY + 4, { width: 135 });
-          doc.text(param.result ?? '-', 185, rowY + 4, { width: 95 });
+          doc.font('Helvetica');
+          doc.save();
+          // Ajuste: Si el nombre es muy largo, reduce la fuente y permite salto de línea
+          const nombre = param.par_name || '';
+          if (nombre.length > 30) {
+            doc.fontSize(9);
+          } else {
+            doc.fontSize(11);
+          }
+          doc.text(nombre, 45, rowY + 4, {
+            width: 135,
+            align: 'left',
+            lineGap: 1,
+            continued: false
+          });
+          doc.fontSize(11);
+          doc.text(resultado, 185, rowY + 4, { width: 95 });
           doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95 });
           // Ajuste de valores de referencia
           let referencia = '-';
@@ -182,7 +219,7 @@ export class PdfService {
             referencia = '';
             if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
             if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
-            if (minChild !== '' && maxChild !== '') referencia += `Ñiños: ${minChild} - ${maxChild}`;
+            if (minChild !== '' && maxChild !== '') referencia += `Niños: ${minChild} - ${maxChild}`;
             referencia = referencia.trim();
           } else {
             referencia = param.par_reference_value ?? '-';
@@ -197,6 +234,20 @@ export class PdfService {
     
     // Pie de página
     doc.moveDown(2);
+    // Agregar la firma alineada a la derecha justo encima del nombre
+    if (bufferFirma) {
+      // Alinear la firma menos a la derecha (ejemplo: ancho máx 120px, alto máx 60px)
+      const firmaWidth = 120;
+      const firmaHeight = 60;
+      const pageWidth = doc.page.width;
+      // Ajusta el margen derecho para que no esté tan pegada
+      const margenDerechoExtra = 60;
+      const xFirma = pageWidth - firmaWidth - doc.page.margins.right - margenDerechoExtra;
+      const yFirma = doc.y;
+      doc.image(bufferFirma, xFirma, yFirma, { fit: [firmaWidth, firmaHeight] });
+      doc.y = yFirma + firmaHeight;      
+    }
+    // Nombre y título
     doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', { align: 'center' });
     doc.fontSize(10).fillColor('black').text('BACTERIOLOGO', { align: 'center' });
 
