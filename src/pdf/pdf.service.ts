@@ -113,8 +113,10 @@ export class PdfService {
     }
     // Resultados por examen/sección
     exams.forEach((exam: any) => {
+      // Variable local para observaciones únicas
+      const uniqueObservations = new Set<string>();
       // Título de sección con fondo azul
-      if (doc.y + 90 > doc.page.height) {
+      if (doc.y + 80 > doc.page.height) {
         doc.addPage();
       }
       const sectionY = doc.y;
@@ -172,14 +174,14 @@ export class PdfService {
         doc.restore();
         doc.moveDown(0.5);
       };
-      sortedParameters?.forEach((param: any, idx: number) => {       
-        // No agregar si el resultado es '-' o vacío
-        const resultado = param.result ?? '-';
-        if (resultado === '-' || resultado === '' || resultado === null) {
-          return;
+      sortedParameters?.forEach((param: any, idx: number) => {
+        // Guardar observaciones únicas en variable local
+        if (param.observation && !uniqueObservations.has(param.observation)) {
+          uniqueObservations.add(param.observation);
         }
+        
         // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
-        if ((doc.y + 90) > (doc.page.height - 90)) {     
+        if ((doc.y + 80) > (doc.page.height - 80)) {     
           doc.addPage();
           pintarEncabezadoTabla();
         }
@@ -189,6 +191,11 @@ export class PdfService {
           doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
           doc.moveDown(0.1);
         } else {
+          // No agregar si el resultado es '-' o vacío
+          const resultado = param.result ?? '-';
+          if (resultado === '-' || resultado === '' || resultado === null) {
+            return;
+          }
           doc.font('Helvetica');
           doc.save();
           // Ajuste: Si el nombre es muy largo, reduce la fuente y permite salto de línea
@@ -205,11 +212,13 @@ export class PdfService {
             continued: false
           });
           doc.fontSize(11);
-          doc.text(resultado, 185, rowY + 4, { width: 95 });
-          doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95 });
+          doc.text(resultado, 185, rowY + 4, { width: 95, align: 'center' });
+          doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95, align: 'center' });
           // Ajuste de valores de referencia
           let referencia = '-';
-          if (param.par_range) {
+          if (param.reference !== undefined && param.reference !== null && param.reference !== '') {
+            referencia = param.reference;
+          } else if (param.par_range) {
             const minMan = param.par_min_man ?? '';
             const maxMan = param.par_max_man ?? '';
             const minWoman = param.par_min_woman ?? '';
@@ -224,12 +233,22 @@ export class PdfService {
           } else {
             referencia = param.par_reference_value ?? '-';
           }
-          doc.text(referencia, 385, rowY + 4, { width: 155 });
+          doc.text(referencia, 385, rowY + 4, { width: 155, align: 'center' });
           doc.restore();
           doc.moveDown(0.1);
         }
       });
-      doc.moveDown();
+      doc.moveDown();      
+      // Agregar observaciones únicas al PDF después de los parámetros
+      if (uniqueObservations.size > 0) {
+        doc.moveDown(0.5);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text('Observaciones:', 45, doc.y, { width: 490, align: 'left' });
+        doc.font('Helvetica').fontSize(10).fillColor('black');
+        Array.from(uniqueObservations).forEach((obs: string) => {
+          doc.text(obs, 45, doc.y, { width: 490, align: 'left' });
+        });
+        doc.moveDown(0.5);
+      }
     });
     
     // Pie de página
@@ -249,7 +268,7 @@ export class PdfService {
     }
     // Nombre y título
     doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', { align: 'center' });
-    doc.fontSize(10).fillColor('black').text('BACTERIOLOGO', { align: 'center' });
+    doc.fontSize(10).fillColor('black').text('BACTERIOLOGO - UIS', { align: 'center' });
 
     doc.end();
 
