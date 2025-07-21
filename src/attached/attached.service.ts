@@ -28,18 +28,29 @@ export class AttachedService {
       // cargar el archivo al storage y obtener la url
       const urlFile = await this.pdfService.uploadFileBuffer(file);
 
-      const attached = this.attachedRepository.create({        
-       order:{ ord_id: orderId},
-       att_file_url: urlFile
-      });
+      // Buscar si ya existe un registro para la orden
+      let attached = await this.attachedRepository.findOne({ where: { order: { ord_id: orderId } } });
 
-      await this.attachedRepository.save(attached);
-
-       return {
-        status: 201,
-        message: 'Archivo adjunto guardado correctamente',
+      if (attached) {
+        // Actualizar el registro existente
+        attached.att_file_url = urlFile;
+        await this.attachedRepository.save(attached);
+        return {
+          status: 200,
+          message: 'Archivo adjunto actualizado correctamente',
+        };
+      } else {
+        // Crear nuevo registro
+        attached = this.attachedRepository.create({
+          order: { ord_id: orderId },
+          att_file_url: urlFile,
+        });
+        await this.attachedRepository.save(attached);
+        return {
+          status: 201,
+          message: 'Archivo adjunto guardado correctamente',
+        };
       }
-      
     } catch (error) {
       console.error('Error al guardar el archivo adjunto:', error);
       this.exceptionService.handleDBError(error);
