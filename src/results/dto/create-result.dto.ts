@@ -10,6 +10,10 @@ export class CreateResultDto {
   @IsOptional()
   res_observation?: string;
 
+  @IsString()
+  @IsOptional()
+  res_reference?: string;
+
   @IsUUID()
   @IsNotEmpty()
   order: string;

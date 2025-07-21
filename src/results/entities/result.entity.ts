@@ -15,6 +15,9 @@ export class Result {
   @Column('text', { nullable: true })
   res_observation: string;
 
+  @Column('text', { nullable: true })
+  res_reference: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   res_created_at: Date;
 

@@ -24,6 +24,7 @@ export function buildOrderResultsHierarchy(order: any) {
         ...param,
         result: result ? result.res_value : null,
         observation: result ? result.res_observation : null,
+        reference: result ? result.res_reference : null, // Agregar referencia del resultado si existe
         id_result: result ? result.res_id : null, // Agregar ID del resultado si existe
       };
     });
