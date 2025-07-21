@@ -116,7 +116,7 @@ export class PdfService {
       // Variable local para observaciones únicas
       const uniqueObservations = new Set<string>();
       // Título de sección con fondo azul
-      if (doc.y + 80 > doc.page.height) {
+      if (doc.y + 90 > doc.page.height) {
         doc.addPage();
       }
       const sectionY = doc.y;
@@ -181,7 +181,7 @@ export class PdfService {
         }
         
         // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
-        if ((doc.y + 80) > (doc.page.height - 80)) {     
+        if ((doc.y + 90) > (doc.page.height - 90)) {     
           doc.addPage();
           pintarEncabezadoTabla();
         }
