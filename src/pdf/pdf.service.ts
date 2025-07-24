@@ -12,6 +12,32 @@ export class PdfService {
   ){}
 
   async generateExamResultsPdf(orderResults: any): Promise<Buffer> {
+    // Función para pintar el pie de página en la posición actual
+    const drawFooter = (doc: PDFDocument, bufferFirma: Buffer | null) => {
+      const firmaWidth = 120;
+      const firmaHeight = 60;
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      // Posición X para alinear a la derecha, respetando el margen derecho
+      const xFirma = pageWidth - doc.page.margins.right - firmaWidth;
+      // Espacio total del pie de página (firma + nombre + título + separación)
+      const espacioPie = firmaHeight + 2 * 16 + 10; // 16 es aprox. alto de texto 10pt
+      // Si el contenido actual invade el pie de página, agrega nueva página
+      if ((doc.y + 20) > (pageHeight - espacioPie)) {
+        doc.addPage();
+      }
+      // Coordenada Y base para el pie de página (30pt desde el borde inferior)
+      const yBase = pageHeight - doc.page.margins.bottom - espacioPie + 10;
+      // Pintar la firma alineada a la derecha
+      if (bufferFirma) {
+        doc.image(bufferFirma, xFirma, yBase, { fit: [firmaWidth, firmaHeight] });
+      }
+      // Nombre y título alineados a la derecha debajo de la firma
+      const yNombre = yBase + firmaHeight + 2;
+      doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', xFirma, yNombre, { width: firmaWidth + 10, align: 'right' });
+      const yTitulo = yNombre + 16;
+      doc.fontSize(10).fillColor('black').text('BACTERIOLOGO - UIS', xFirma, yTitulo, { width: firmaWidth, align: 'right' });
+    };
     const doc = new PDFDocument({ margin: 40, size: 'letter' });
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
@@ -27,7 +53,7 @@ export class PdfService {
     }
 
     // Encabezado con logo y datos del laboratorio
-    if (orderResults.laboratory?.lab_logo) {
+    if (orderResults.laboratory?.lab_logo) {console.log('Laboratorio con logo:', orderResults.laboratory.lab_logo);
       try {
         const bufferLogo = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_logo}`);
         // Ancho total de la página menos márgenes (A4: 595.28pt, margen 40)        
@@ -52,8 +78,7 @@ export class PdfService {
     let fechaIngreso = '';
     if (orderResults.ord_created_at) {
       const fechaOriginal = new Date(orderResults.ord_created_at);
-      fechaOriginal.setHours(fechaOriginal.getHours() - 5);
-      fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+      fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });      
     }    
     const fechaGeneracion = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
     // Datos del paciente y orden en dos columnas
@@ -101,64 +126,38 @@ export class PdfService {
       attachedBuffers.push({ file: attached, buffer, ext });
     }
 
+    // Extraer los valores de exa_classification antes de ordenar los exámenes, eliminar repetidos y ordenarlos
+    let examClassifications = (orderResults.exams ?? []).map((ex: any) => ex.exa_classification);
+    examClassifications = Array.from(new Set(examClassifications)).filter(x => x != null).sort();
     // Ordenar los exámenes para que hemograma siempre sea el primero
     let exams = orderResults.exams ?? [];
-    if (exams.length > 1) {
-      const hemogramaIndex = exams.findIndex((ex: any) => typeof ex.exa_name === 'string' && ex.exa_name.toLowerCase().includes('hemograma'));
-      if (hemogramaIndex > -1) {
-        const hemogramaExam = exams[hemogramaIndex];
-        exams = exams.filter((_, idx) => idx !== hemogramaIndex);
-        exams = [hemogramaExam, ...exams];
-      }
-    }
-    // Resultados por examen/sección
-    exams.forEach((exam: any) => {
-      // Variable local para observaciones únicas
-      const uniqueObservations = new Set<string>();
-      // Título de sección con fondo azul
-      if (doc.y + 90 > doc.page.height) {
+
+    let indexExam = 1
+    // iteramos las clasificaciones de exámenes
+    examClassifications.forEach((classification: string) => {
+
+      // validamos si ya hay otra clasificacion se inicia otra pagina
+      if (indexExam > 1) {
         doc.addPage();
       }
-      const sectionY = doc.y;
-      doc.save();
-      doc.rect(40, sectionY, 500, 20).fill('#0074b7');
-      doc.fillColor('white').fontSize(12).font('Helvetica-Bold').text(exam.exa_name.toUpperCase(), 45, sectionY + 4, { width: 490, align: 'center' });
-      doc.restore();
-      doc.moveDown(0.5);
-      // Encabezado de tabla
-      const tableY = doc.y;
-      doc.save();
-      doc.rect(40, tableY, 500, 18).stroke();
-      doc.rect(40, tableY, 140, 18).stroke();
-      doc.rect(180, tableY, 100, 18).stroke();
-      doc.rect(280, tableY, 100, 18).stroke();
-      doc.rect(380, tableY, 160, 18).stroke();
-      doc.fillColor('#0074b7').font('Helvetica-Bold');
-      doc.text('Examen', 45, tableY + 4, { width: 135, align: 'center' });
-      doc.text('Resultado', 185, tableY + 4, { width: 95, align: 'center' });
-      doc.text('Unidades', 285, tableY + 4, { width: 95, align: 'center' });
-      doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
-      doc.restore();
-      doc.moveDown(0.5);
-      // Filas de resultados con borde de tabla más delgado
-      doc.font('Helvetica').fillColor('black');
-      if (exam.exa_name.toLowerCase().includes('hemograma')) {        
-        attachedBuffers.forEach(({ file, buffer, ext }) => {
-          // Si es imagen, ubicar lo más a la izquierda respetando el margen
-          const marginLeft = doc.page.margins.left;
-          const fitWidth = 700;
-          const fitHeight = 290;
-          const yInicial = doc.y;
-          doc.image(buffer, marginLeft, yInicial, { fit: [fitWidth, fitHeight] });
-          // Actualiza manualmente doc.y para que el pie de página quede debajo de la imagen
-          doc.y = yInicial + fitHeight;
-          doc.moveDown(1);
-        });
-      }
-      // Ordenar los parámetros por par_order antes de agregarlos al PDF
-      const sortedParameters = exam.parameters?.slice().sort((a: any, b: any) => (a.par_order ?? 0) - (b.par_order ?? 0));
-      // Encabezado de tabla para reutilizar en saltos de página
-      const pintarEncabezadoTabla = () => {
+      // obtenemos los exámenes de la clasificación actual
+      const examsByClassification = exams.filter((ex: any) => ex.exa_classification === classification);
+
+      // Resultados por examen/sección
+      examsByClassification.forEach((exam: any) => {
+        // Variable local para observaciones únicas
+        const uniqueObservations = new Set<string>();
+        // Título de sección con fondo azul
+        if (doc.y + 90 > doc.page.height) {
+          doc.addPage();
+        }
+        const sectionY = doc.y;
+        doc.save();
+        doc.rect(40, sectionY, 500, 20).fill('#0074b7');
+        doc.fillColor('white').fontSize(12).font('Helvetica-Bold').text(exam.exa_name.toUpperCase(), 45, sectionY + 4, { width: 490, align: 'center' });
+        doc.restore();
+        doc.moveDown(0.5);
+        // Encabezado de tabla
         const tableY = doc.y;
         doc.save();
         doc.rect(40, tableY, 500, 18).stroke();
@@ -173,102 +172,122 @@ export class PdfService {
         doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
         doc.restore();
         doc.moveDown(0.5);
-      };
-      sortedParameters?.forEach((param: any, idx: number) => {
-        // Guardar observaciones únicas en variable local
-        if (param.observation && !uniqueObservations.has(param.observation)) {
-          uniqueObservations.add(param.observation);
-        }
-        
-        // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
-        if ((doc.y + 90) > (doc.page.height - 90)) {     
-          doc.addPage();
-          pintarEncabezadoTabla();
-        }
-        const rowY = doc.y;
-        // Si el nombre del parámetro inicia con '*', centrado y en negrita, sin mostrar valores
-        if (typeof param.par_name === 'string' && param.par_name.trim().startsWith('*')) {
-          doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
-          doc.moveDown(0.1);
-        } else {
-          // No agregar si el resultado es '-' o vacío
-          const resultado = param.result ?? '-';
-          if (resultado === '-' || resultado === '' || resultado === null) {
-            return;
-          }
-          doc.font('Helvetica');
-          doc.save();
-          // Ajuste: Si el nombre es muy largo, reduce la fuente y permite salto de línea
-          const nombre = param.par_name || '';
-          if (nombre.length > 30) {
-            doc.fontSize(9);
-          } else {
-            doc.fontSize(11);
-          }
-          doc.text(nombre, 45, rowY + 4, {
-            width: 135,
-            align: 'left',
-            lineGap: 1,
-            continued: false
+        // Filas de resultados con borde de tabla más delgado
+        doc.font('Helvetica').fillColor('black');
+        if (exam.exa_name.toLowerCase().includes('hemograma')) {        
+          attachedBuffers.forEach(({ file, buffer, ext }) => {
+            // Si es imagen, ubicar lo más a la izquierda respetando el margen
+            const marginLeft = doc.page.margins.left;
+            const fitWidth = 700;
+            const fitHeight = 290;
+            const yInicial = doc.y;
+            doc.image(buffer, marginLeft, yInicial, { fit: [fitWidth, fitHeight] });
+            // Actualiza manualmente doc.y para que el pie de página quede debajo de la imagen
+            doc.y = yInicial + fitHeight;
+            doc.moveDown(1);
           });
-          doc.fontSize(11);
-          doc.text(resultado, 185, rowY + 4, { width: 95, align: 'center' });
-          doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95, align: 'center' });
-          // Ajuste de valores de referencia
-          let referencia = '-';
-          if (param.reference !== undefined && param.reference !== null && param.reference !== '') {
-            referencia = param.reference;
-          } else if (param.par_range) {
-            const minMan = param.par_min_man ?? '';
-            const maxMan = param.par_max_man ?? '';
-            const minWoman = param.par_min_woman ?? '';
-            const maxWoman = param.par_max_woman ?? '';
-            const minChild = param.par_min_child ?? '';
-            const maxChild = param.par_max_child ?? '';
-            referencia = '';
-            if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
-            if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
-            if (minChild !== '' && maxChild !== '') referencia += `Niños: ${minChild} - ${maxChild}`;
-            referencia = referencia.trim();
-          } else {
-            referencia = param.par_reference_value ?? '-';
-          }
-          doc.text(referencia, 385, rowY + 4, { width: 155, align: 'center' });
+        }
+        // Ordenar los parámetros por par_order antes de agregarlos al PDF
+        const sortedParameters = exam.parameters?.slice().sort((a: any, b: any) => (a.par_order ?? 0) - (b.par_order ?? 0));
+        // Encabezado de tabla para reutilizar en saltos de página
+        const pintarEncabezadoTabla = () => {
+          const tableY = doc.y;
+          doc.save();
+          doc.rect(40, tableY, 500, 18).stroke();
+          doc.rect(40, tableY, 140, 18).stroke();
+          doc.rect(180, tableY, 100, 18).stroke();
+          doc.rect(280, tableY, 100, 18).stroke();
+          doc.rect(380, tableY, 160, 18).stroke();
+          doc.fillColor('#0074b7').font('Helvetica-Bold');
+          doc.text('Examen', 45, tableY + 4, { width: 135, align: 'center' });
+          doc.text('Resultado', 185, tableY + 4, { width: 95, align: 'center' });
+          doc.text('Unidades', 285, tableY + 4, { width: 95, align: 'center' });
+          doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
           doc.restore();
-          doc.moveDown(0.1);
+          doc.moveDown(0.5);
+        };
+        sortedParameters?.forEach((param: any, idx: number) => {
+          // Guardar observaciones únicas en variable local
+          if (param.observation && !uniqueObservations.has(param.observation)) {
+            uniqueObservations.add(param.observation);
+          }
+          
+          // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
+          if ((doc.y + 90) > (doc.page.height - 90)) {     
+            doc.addPage();
+            pintarEncabezadoTabla();
+          }
+          const rowY = doc.y;
+          // Si el nombre del parámetro inicia con '*', centrado y en negrita, sin mostrar valores
+          if (typeof param.par_name === 'string' && param.par_name.trim().startsWith('*')) {
+            doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
+            doc.moveDown(0.1);
+          } else {
+            // No agregar si el resultado es '-' o vacío
+            const resultado = param.result ?? '-';
+            if (resultado === '-' || resultado === '' || resultado === null) {
+              return;
+            }
+            doc.font('Helvetica');
+            doc.save();
+            // Ajuste: Si el nombre es muy largo, reduce la fuente y permite salto de línea
+            const nombre = param.par_name || '';
+            if (nombre.length > 30) {
+              doc.fontSize(9);
+            } else {
+              doc.fontSize(11);
+            }
+            doc.text(nombre, 45, rowY + 4, {
+              width: 135,
+              align: 'left',
+              lineGap: 1,
+              continued: false
+            });
+            doc.fontSize(11);
+            doc.text(resultado, 185, rowY + 4, { width: 95, align: 'center' });
+            doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95, align: 'center' });
+            // Ajuste de valores de referencia
+            let referencia = '-';
+            if (param.reference !== undefined && param.reference !== null && param.reference !== '') {
+              referencia = param.reference;
+            } else if (param.par_range) {
+              const minMan = param.par_min_man ?? '';
+              const maxMan = param.par_max_man ?? '';
+              const minWoman = param.par_min_woman ?? '';
+              const maxWoman = param.par_max_woman ?? '';
+              const minChild = param.par_min_child ?? '';
+              const maxChild = param.par_max_child ?? '';
+              referencia = '';
+              if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
+              if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
+              if (minChild !== '' && maxChild !== '') referencia += `Niños: ${minChild} - ${maxChild}`;
+              referencia = referencia.trim();
+            } else {
+              referencia = param.par_reference_value ?? '-';
+            }
+            doc.text(referencia, 385, rowY + 4, { width: 155, align: 'center' });
+            doc.restore();
+            doc.moveDown(0.1);
+          }
+        });
+        doc.moveDown();      
+        // Agregar observaciones únicas al PDF después de los parámetros
+        if (uniqueObservations.size > 0) {
+          doc.moveDown(0.5);
+          doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text('Observaciones:', 45, doc.y, { width: 490, align: 'left' });
+          doc.font('Helvetica').fontSize(10).fillColor('black');
+          Array.from(uniqueObservations).forEach((obs: string) => {
+            doc.text(obs, 45, doc.y, { width: 490, align: 'left' });
+          });
+          doc.moveDown(0.5);
         }
       });
-      doc.moveDown();      
-      // Agregar observaciones únicas al PDF después de los parámetros
-      if (uniqueObservations.size > 0) {
-        doc.moveDown(0.5);
-        doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text('Observaciones:', 45, doc.y, { width: 490, align: 'left' });
-        doc.font('Helvetica').fontSize(10).fillColor('black');
-        Array.from(uniqueObservations).forEach((obs: string) => {
-          doc.text(obs, 45, doc.y, { width: 490, align: 'left' });
-        });
-        doc.moveDown(0.5);
-      }
-    });
     
-    // Pie de página
-    doc.moveDown(2);
-    // Agregar la firma alineada a la derecha justo encima del nombre
-    if (bufferFirma) {
-      // Alinear la firma menos a la derecha (ejemplo: ancho máx 120px, alto máx 60px)
-      const firmaWidth = 120;
-      const firmaHeight = 60;
-      const pageWidth = doc.page.width;
-      // Ajusta el margen derecho para que no esté tan pegada
-      const margenDerechoExtra = 60;
-      const xFirma = pageWidth - firmaWidth - doc.page.margins.right - margenDerechoExtra;
-      const yFirma = doc.y;
-      doc.image(bufferFirma, xFirma, yFirma, { fit: [firmaWidth, firmaHeight] });
-      doc.y = yFirma + firmaHeight;      
-    }
-    // Nombre y título
-    doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', { align: 'center' });
-    doc.fontSize(10).fillColor('black').text('BACTERIOLOGO - UIS', { align: 'center' });
+    // sumamos el índice de exámenes
+    indexExam++;
+    // Pie de página con firma
+    drawFooter(doc, bufferFirma);
+    });
 
     doc.end();
 
