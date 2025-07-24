@@ -22,4 +22,9 @@ export class CreateExamDto {
   @IsUUID()
   @IsOptional()
   alliance?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  exa_classification?: string;
 }
