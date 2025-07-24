@@ -16,8 +16,12 @@ export class Exam {
   @Column('text', { nullable: true })
   exa_description: string;
 
+
   @Column('decimal', { precision: 10, scale: 2 })
   exa_price: number;
+
+  @Column('text', { nullable: true })
+  exa_classification: string;
 
   @CreateDateColumn({ type: 'timestamp' })
   exa_created: Date;
