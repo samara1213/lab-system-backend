@@ -1,97 +1,75 @@
+// ...existing code...
 import { Injectable } from '@nestjs/common';
-import * as PDFDocument from 'pdfkit';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { StorageService } from '../storage/storage.service';
 
+
 @Injectable()
 export class PdfService {
-    
   constructor(
     private readonly storageService: StorageService,
     private readonly exceptionService: ExceptionService, 
   ){}
 
   async generateExamResultsPdf(orderResults: any): Promise<Buffer> {
-    // Función para pintar el pie de página en la posición actual
-    const drawFooter = (doc: PDFDocument, bufferFirma: Buffer | null) => {
-      const firmaWidth = 120;
-      const firmaHeight = 60;
-      const pageWidth = doc.page.width;
-      const pageHeight = doc.page.height;
-      // Posición X para alinear a la derecha, respetando el margen derecho
-      const xFirma = pageWidth - doc.page.margins.right - firmaWidth;
-      // Espacio total del pie de página (firma + nombre + título + separación)
-      const espacioPie = firmaHeight + 2 * 16 + 10; // 16 es aprox. alto de texto 10pt
-      // Si el contenido actual invade el pie de página, agrega nueva página
-      if ((doc.y + 20) > (pageHeight - espacioPie)) {
-        doc.addPage();
-      }
-      // Coordenada Y base para el pie de página (30pt desde el borde inferior)
-      const yBase = pageHeight - doc.page.margins.bottom - espacioPie + 10;
-      // Pintar la firma alineada a la derecha
-      if (bufferFirma) {
-        doc.image(bufferFirma, xFirma, yBase, { fit: [firmaWidth, firmaHeight] });
-      }
-      // Nombre y título alineados a la derecha debajo de la firma
-      const yNombre = yBase + firmaHeight + 2;
-      doc.fontSize(10).fillColor('black').text(orderResults.laboratory?.lab_legal_representative || '', xFirma, yNombre, { width: firmaWidth + 10, align: 'right' });
-      const yTitulo = yNombre + 16;
-      doc.fontSize(10).fillColor('black').text('BACTERIOLOGO - UIS', xFirma, yTitulo, { width: firmaWidth, align: 'right' });
-    };
-    const doc = new PDFDocument({ margin: 40, size: 'letter' });
-    const buffers: Buffer[] = [];
-    doc.on('data', buffers.push.bind(buffers));
+    
+    // 1. Cargar la plantilla HTML
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const Handlebars = (await import('handlebars')).default;
+    const puppeteer = (await import('puppeteer')).default;
 
-    // Obtener buffer de la firma si existe
-    let bufferFirma: Buffer | null = null;
-    if (orderResults.laboratory?.lab_signature) {
-      try {
-        bufferFirma = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_signature}`);
-      } catch (e) {
-        bufferFirma = null;
-      }
+    // Registrar helpers para startsWith y substring
+    if (!Handlebars.helpers.startsWith) {
+      Handlebars.registerHelper('startsWith', function(str: string, prefix: string) {
+        return typeof str === 'string' && str.startsWith(prefix);
+      });
+    }
+    if (!Handlebars.helpers.substring) {
+      Handlebars.registerHelper('substring', function(str: string, start: number) {
+        return typeof str === 'string' ? str.substring(start) : str;
+      });
+    }
+    if (!Handlebars.helpers.eq) {
+      Handlebars.registerHelper('eq', function(a: any, b: any) {
+        return a === b;
+      });
+    }
+    if (!Handlebars.helpers.or) {
+      Handlebars.registerHelper('or', function() {
+        const args = Array.prototype.slice.call(arguments, 0, -1);
+        return args.some(Boolean);
+      });
+    }
+        if (!Handlebars.helpers.and) {
+      Handlebars.registerHelper('and', function() {
+        const args = Array.prototype.slice.call(arguments, 0, -1);
+        return args.every(Boolean);
+      });
+    }
+    if (!Handlebars.helpers.not) {
+      Handlebars.registerHelper('not', function(value: any) {
+        return !value;
+      });
+    }
+    if (!Handlebars.helpers.contains) {
+      Handlebars.registerHelper('contains', function(str: string, substr: string) {
+        return typeof str === 'string' && str.toLowerCase().includes(substr.toLowerCase());
+      });
+    }
+    if (!Handlebars.helpers.toLowerCase) {
+      Handlebars.registerHelper('toLowerCase', function(str: string) {
+        return typeof str === 'string' ? str.toLowerCase() : str;
+      });
     }
 
-    // Encabezado con logo y datos del laboratorio
-    if (orderResults.laboratory?.lab_logo) {console.log('Laboratorio con logo:', orderResults.laboratory.lab_logo);
-      try {
-        const bufferLogo = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_logo}`);
-        // Ancho total de la página menos márgenes (A4: 595.28pt, margen 40)        
-        doc.image(bufferLogo, 40, 30, { width: 515 }); 
-    
-      } catch (e) {
-        // aca si no carga la imagen no se detenga
-       
-      }
-    } else {
-        // Si no hay logo, colocaos los datos del laboratorio en la parte superior
-        doc.fontSize(20).text(orderResults.laboratory?.lab_name || 'Laboratorio', 140, 40, { align: 'left' });
-        doc.fontSize(10).text(`NIT: ${orderResults.laboratory?.lab_nit || ''}-${orderResults.laboratory?.lab_dv || ''}`, 140, 65);
-        doc.fontSize(10).text(`Dirección: ${orderResults.laboratory?.lab_address || ''}`, 140, 80);
-        doc.fontSize(10).text(`Teléfono: ${orderResults.laboratory?.lab_phone || ''}`, 140, 95);
-    }
-    
-    doc.moveDown(5);
+    // Ruta absoluta a la plantilla HTML (siempre desde la raíz del proyecto)
+    const templatePath = path.resolve(process.cwd(), 'src/pdf/templates/result-header.html');
+    let templateHtml = await fs.readFile(templatePath, 'utf8');
 
-    // Ajuste: Mostrar fechas con zona horaria America/Bogota
-    // Restar 5 horas a la fecha de ingreso
-    let fechaIngreso = '';
-    if (orderResults.ord_created_at) {
-      const fechaOriginal = new Date(orderResults.ord_created_at);
-      fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });      
-    }    
-    const fechaGeneracion = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
-    // Datos del paciente y orden en dos columnas
-    doc.fontSize(11).font('Helvetica-Bold');
-    doc.text('Paciente:', 40, 140); doc.font('Helvetica').text(`${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`, 110, 140);
-    doc.font('Helvetica-Bold').text('N° de orden:', 310, 140); doc.font('Helvetica').text(`${orderResults.ord_code || ''}`, 430, 140);
-
-    doc.font('Helvetica-Bold').text('Doc. Id:', 40, 160); doc.font('Helvetica').text(`${orderResults.customer?.cus_document_number || ''}`, 110, 160);
-    doc.font('Helvetica-Bold').text('Fecha de Ingreso:', 310, 160); doc.font('Helvetica').text(`${fechaIngreso}`, 430, 160);
-
-    // Calcula edad
-    const birth = orderResults.customer?.cus_birthdate ? new Date(orderResults.customer.cus_birthdate) : null;
+    // 2. Prepara los datos para la plantilla
     let edad = '';
+    const birth = orderResults.customer?.cus_birthdate ? new Date(orderResults.customer.cus_birthdate) : null;
     if (birth) {
       const now = new Date();
       let years = now.getFullYear() - birth.getFullYear();
@@ -101,18 +79,25 @@ export class PdfService {
       if (months < 0) { years--; months += 12; }
       edad = `${years} años, ${months} meses, ${days} días`;
     }
-    doc.font('Helvetica-Bold').text('Edad:', 40, 180); doc.font('Helvetica').text(edad, 110, 180);
-    doc.font('Helvetica-Bold').text('Genero:', 310, 180); doc.font('Helvetica').text(`${orderResults.customer?.cus_gender || ''}`, 430, 180);
+    const fechaOriginal = new Date(orderResults.ord_created_at);
+    const fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });       
+    const fechaGeneracion = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
 
-    doc.font('Helvetica-Bold').text('Medico:', 40, 200); // Puedes agregar el nombre si lo tienes
-    doc.font('Helvetica-Bold').text('Pag No.', 310, 200); doc.font('Helvetica').text('1 de 1', 430, 200);
 
-    doc.font('Helvetica-Bold').text('Fecha Generacion:', 310, 220); doc.font('Helvetica').text(fechaGeneracion, 430, 220);
-  
-    doc.moveDown(1);    
-    // Consultar los adjuntos antes de recorrer los exámenes y obtener sus buffers
+    // 2.1. Convertir logo a base64 si existe
+    let labLogoBase64 = '';
+    if (orderResults.laboratory?.lab_logo) {
+      try {
+        const logoBuffer = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_logo}`);
+        const ext = orderResults.laboratory.lab_logo.split('.').pop()?.toLowerCase() || 'png';
+        labLogoBase64 = `data:image/${ext};base64,${logoBuffer.toString('base64')}`;
+      } catch (e) {
+        labLogoBase64 = '';
+      }
+    }
+
     const attachedFiles = Array.isArray(orderResults.attachedFiles) ? orderResults.attachedFiles : [];
-    const attachedBuffers: { file: any, buffer: Buffer | null, ext: string }[] = [];
+    const hemogramaImages: string[] = [];
     for (const attached of attachedFiles) {
       let buffer = null;
       let ext = '';
@@ -123,181 +108,123 @@ export class PdfService {
         buffer = null;
         ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
       }
-      attachedBuffers.push({ file: attached, buffer, ext });
+      // Solo agregar si es imagen y buffer válido
+      if (buffer && ['png','jpg','jpeg','gif','bmp','webp'].includes(ext)) {
+        hemogramaImages.push(`data:image/${ext};base64,${buffer.toString('base64')}`);
+      }
     }
 
-    // Extraer los valores de exa_classification antes de ordenar los exámenes, eliminar repetidos y ordenarlos
-    let examClassifications = (orderResults.exams ?? []).map((ex: any) => ex.exa_classification);
-    examClassifications = Array.from(new Set(examClassifications)).filter(x => x != null).sort();
-    // Ordenar los exámenes para que hemograma siempre sea el primero
-    let exams = orderResults.exams ?? [];
-
-    let indexExam = 1
-    // iteramos las clasificaciones de exámenes
-    examClassifications.forEach((classification: string) => {
-
-      // validamos si ya hay otra clasificacion se inicia otra pagina
-      if (indexExam > 1) {
-        doc.addPage();
+    let labSignatureBase64 = '';
+    if (orderResults.laboratory?.lab_signature) {
+      try {
+        const bufferFirma = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_signature}`);
+        const extFirma = orderResults.laboratory.lab_signature.split('.').pop()?.toLowerCase() || 'png';
+        labSignatureBase64 = `data:image/${extFirma};base64,${bufferFirma.toString('base64')}`;
+      } catch (e) {
+        labSignatureBase64 = '';
       }
-      // obtenemos los exámenes de la clasificación actual
-      const examsByClassification = exams.filter((ex: any) => ex.exa_classification === classification);
+    }
 
-      // Resultados por examen/sección
-      examsByClassification.forEach((exam: any) => {
-        // Variable local para observaciones únicas
-        const uniqueObservations = new Set<string>();
-        // Título de sección con fondo azul
-        if (doc.y + 90 > doc.page.height) {
-          doc.addPage();
-        }
-        const sectionY = doc.y;
-        doc.save();
-        doc.rect(40, sectionY, 500, 20).fill('#0074b7');
-        doc.fillColor('white').fontSize(12).font('Helvetica-Bold').text(exam.exa_name.toUpperCase(), 45, sectionY + 4, { width: 490, align: 'center' });
-        doc.restore();
-        doc.moveDown(0.5);
-        // Encabezado de tabla
-        const tableY = doc.y;
-        doc.save();
-        doc.rect(40, tableY, 500, 18).stroke();
-        doc.rect(40, tableY, 140, 18).stroke();
-        doc.rect(180, tableY, 100, 18).stroke();
-        doc.rect(280, tableY, 100, 18).stroke();
-        doc.rect(380, tableY, 160, 18).stroke();
-        doc.fillColor('#0074b7').font('Helvetica-Bold');
-        doc.text('Examen', 45, tableY + 4, { width: 135, align: 'center' });
-        doc.text('Resultado', 185, tableY + 4, { width: 95, align: 'center' });
-        doc.text('Unidades', 285, tableY + 4, { width: 95, align: 'center' });
-        doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
-        doc.restore();
-        doc.moveDown(0.5);
-        // Filas de resultados con borde de tabla más delgado
-        doc.font('Helvetica').fillColor('black');
-        if (exam.exa_name.toLowerCase().includes('hemograma')) {        
-          attachedBuffers.forEach(({ file, buffer, ext }) => {
-            // Si es imagen, ubicar lo más a la izquierda respetando el margen
-            const marginLeft = doc.page.margins.left;
-            const fitWidth = 700;
-            const fitHeight = 290;
-            const yInicial = doc.y;
-            doc.image(buffer, marginLeft, yInicial, { fit: [fitWidth, fitHeight] });
-            // Actualiza manualmente doc.y para que el pie de página quede debajo de la imagen
-            doc.y = yInicial + fitHeight;
-            doc.moveDown(1);
-          });
-        }
-        // Ordenar los parámetros por par_order antes de agregarlos al PDF
-        const sortedParameters = exam.parameters?.slice().sort((a: any, b: any) => (a.par_order ?? 0) - (b.par_order ?? 0));
-        // Encabezado de tabla para reutilizar en saltos de página
-        const pintarEncabezadoTabla = () => {
-          const tableY = doc.y;
-          doc.save();
-          doc.rect(40, tableY, 500, 18).stroke();
-          doc.rect(40, tableY, 140, 18).stroke();
-          doc.rect(180, tableY, 100, 18).stroke();
-          doc.rect(280, tableY, 100, 18).stroke();
-          doc.rect(380, tableY, 160, 18).stroke();
-          doc.fillColor('#0074b7').font('Helvetica-Bold');
-          doc.text('Examen', 45, tableY + 4, { width: 135, align: 'center' });
-          doc.text('Resultado', 185, tableY + 4, { width: 95, align: 'center' });
-          doc.text('Unidades', 285, tableY + 4, { width: 95, align: 'center' });
-          doc.text('Valores de Referencia', 385, tableY + 4, { width: 155, align: 'center' });
-          doc.restore();
-          doc.moveDown(0.5);
-        };
-        sortedParameters?.forEach((param: any, idx: number) => {
-          // Guardar observaciones únicas en variable local
-          if (param.observation && !uniqueObservations.has(param.observation)) {
-            uniqueObservations.add(param.observation);
-          }
-          
-          // Si el espacio vertical está cerca del final de la hoja, agrega nueva página y repinta encabezado
-          if ((doc.y + 90) > (doc.page.height - 90)) {     
-            doc.addPage();
-            pintarEncabezadoTabla();
-          }
-          const rowY = doc.y;
-          // Si el nombre del parámetro inicia con '*', centrado y en negrita, sin mostrar valores
-          if (typeof param.par_name === 'string' && param.par_name.trim().startsWith('*')) {
-            doc.font('Helvetica-Bold').text(param.par_name.replace(/^\*/, '').trim(), 45, rowY + 4, { width: 490, align: 'center' });
-            doc.moveDown(0.1);
-          } else {
-            // No agregar si el resultado es '-' o vacío
-            const resultado = param.result ?? '-';
-            if (resultado === '-' || resultado === '' || resultado === null) {
-              return;
-            }
-            doc.font('Helvetica');
-            doc.save();
-            // Ajuste: Si el nombre es muy largo, reduce la fuente y permite salto de línea
-            const nombre = param.par_name || '';
-            if (nombre.length > 30) {
-              doc.fontSize(9);
-            } else {
-              doc.fontSize(11);
-            }
-            doc.text(nombre, 45, rowY + 4, {
-              width: 135,
-              align: 'left',
-              lineGap: 1,
-              continued: false
+    // 2.2. Agrupar y deduplicar clasificaciones de exámenes
+    // Mapeo de nombres de clasificación
+    const classificationNames: Record<number, string> = {
+      '1': 'HEMATOLOGIA',
+      '2': 'HEMATOLOGIA',
+      '3': 'QUIMICA',
+      '4': 'INMUNOLOGIA',
+      '5': 'MICROSCOPIA',
+      '6': 'MACROSCOPIA',
+      '7': 'MICROBIOLOGIA',
+      '8': 'HORMONAS',
+    };
+    let uniqueClassifications: any[] = [];
+    if (Array.isArray(orderResults.exams)) {
+      const seen = new Set();
+      for (const exam of orderResults.exams) {
+        if (!seen.has(exam.exa_classification)) {
+          seen.add(exam.exa_classification);
+          const exams = orderResults.exams
+            .filter((e: any) => e.exa_classification === exam.exa_classification)
+            .map((ex: any) => {
+              const sortedParams = Array.isArray(ex.parameters)
+                ? [...ex.parameters].sort((a, b) => (a.par_order ?? 0) - (b.par_order ?? 0))
+                : ex.parameters;
+              // Extraer observaciones únicas de los parámetros
+              const uniqueObservations = [
+                ...new Set(
+                  (Array.isArray(sortedParams)
+                    ? sortedParams
+                    : []
+                  )
+                    .map((p: any) => p.observation)
+                    .filter((obs: any) => !!obs && obs.trim() !== '')
+                ),
+              ];
+              return {
+                ...ex,
+                parameters: sortedParams,
+                uniqueObservations,
+              };
             });
-            doc.fontSize(11);
-            doc.text(resultado, 185, rowY + 4, { width: 95, align: 'center' });
-            doc.text(param.par_unit_extent ?? '-', 285, rowY + 4, { width: 95, align: 'center' });
-            // Ajuste de valores de referencia
-            let referencia = '-';
-            if (param.reference !== undefined && param.reference !== null && param.reference !== '') {
-              referencia = param.reference;
-            } else if (param.par_range) {
-              const minMan = param.par_min_man ?? '';
-              const maxMan = param.par_max_man ?? '';
-              const minWoman = param.par_min_woman ?? '';
-              const maxWoman = param.par_max_woman ?? '';
-              const minChild = param.par_min_child ?? '';
-              const maxChild = param.par_max_child ?? '';
-              referencia = '';
-              if (minMan !== '' && maxMan !== '') referencia += `Hombres: ${minMan} - ${maxMan}\n`;
-              if (minWoman !== '' && maxWoman !== '') referencia += `Mujeres: ${minWoman} - ${maxWoman}\n`;
-              if (minChild !== '' && maxChild !== '') referencia += `Niños: ${minChild} - ${maxChild}`;
-              referencia = referencia.trim();
-            } else {
-              referencia = param.par_reference_value ?? '-';
-            }
-            doc.text(referencia, 385, rowY + 4, { width: 155, align: 'center' });
-            doc.restore();
-            doc.moveDown(0.1);
-          }
-        });
-        doc.moveDown();      
-        // Agregar observaciones únicas al PDF después de los parámetros
-        if (uniqueObservations.size > 0) {
-          doc.moveDown(0.5);
-          doc.font('Helvetica-Bold').fontSize(10).fillColor('black').text('Observaciones:', 45, doc.y, { width: 490, align: 'left' });
-          doc.font('Helvetica').fontSize(10).fillColor('black');
-          Array.from(uniqueObservations).forEach((obs: string) => {
-            doc.text(obs, 45, doc.y, { width: 490, align: 'left' });
+          // Si es hemograma, agrega las imágenes
+          const isHemograma = [1].includes(Number(exam.exa_classification));
+          uniqueClassifications.push({
+            classification_id: exam.exa_classification,
+            classification: classificationNames[exam.exa_classification] || exam.exa_classification,
+            exams,
+            images: isHemograma ? hemogramaImages : undefined
           });
-          doc.moveDown(0.5);
         }
-      });
-    
-    // sumamos el índice de exámenes
-    indexExam++;
-    // Pie de página con firma
-    drawFooter(doc, bufferFirma);
-    });
+      }
+      // Ordenar de menor a mayor por classification_id
+      uniqueClassifications.sort((a, b) => a.classification_id - b.classification_id);
+    }
 
-    doc.end();
+    // 3. Renderizar HTML con Handlebars
+    const template = Handlebars.compile(templateHtml);
+    const html = template({
+      ...orderResults,
+      cus_full_name: `${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`.replace(/\s+/g, ' ').trim(),
+      cus_document_number: orderResults.customer?.cus_document_number || '',
+      cus_age: edad,
+      cus_gender: orderResults.customer?.cus_gender || '',
+      ord_code: orderResults.ord_code || '',
+      ord_created_at: fechaIngreso,
+      fecha_generacion: fechaGeneracion,
+      page_number: 1, // Puedes ajustar la paginación si lo necesitas
+      lab_logo: labLogoBase64,
+      lab_name: orderResults.laboratory?.lab_name || '',
+      lab_address: orderResults.laboratory?.lab_address || '',
+      lab_phone: orderResults.laboratory?.lab_phone || '',
+      lab_email: orderResults.laboratory?.lab_email || '',
+      lab_signer_name: orderResults.laboratory?.lab_legal_representative || '',
+      lab_signer_role: orderResults.laboratory?.lab_signer_role || '', 
+      lab_signature_base64: labSignatureBase64,
+      uniqueClassifications,
+      labSignatureBase64,
+      edad,
+      fechaIngreso,
+      fechaGeneracion,
+    }); 
 
-    // Eliminar lógica de guardado local, solo retornar el buffer generado
-    return new Promise<Buffer>((resolve) => {
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(buffers);
-        resolve(pdfBuffer);
-      });
-    });
+    // obtener encabezado para paginas
+    const templateHeaderHtml = this.getReportHeaderHtml(orderResults, edad, fechaIngreso, fechaGeneracion, labLogoBase64);
+    // 4. Generar PDF con Puppeteer
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'letter', 
+                                       printBackground: true,
+                                       margin: { top: '270px', 
+                                                 bottom: '40px', 
+                                                 left: '40px', 
+                                                 right: '40px' },
+                                      displayHeaderFooter: true,
+                                      headerTemplate: templateHeaderHtml,
+                                      footerTemplate: `<div></div>`});
+    await browser.close();
+    // Asegura que el resultado sea un Buffer (Node.js)
+    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
   }
   
   
@@ -312,7 +239,7 @@ export class PdfService {
         // ontener el buffer del PDF generado
         const pdfBuffer = await this.generateExamResultsPdf(orderResults);
 
-        // agregamos el nombre del archivo y lo subimos al almacenamiento
+        //agregamos el nombre del archivo y lo subimos al almacenamiento
         const fileName = `laboartorio=${orderResults.laboratory.lab_nit}/${orderResults.customer.cus_document_number}/resultados-${orderResults.ord_id}.pdf`;
 
         // Subir el buffer del PDF al servicio de almacenamiento
@@ -345,5 +272,103 @@ export class PdfService {
       this.exceptionService.handleDBError(error);
 
     }
+  }
+  
+  /**
+   * Devuelve el header HTML para el reporte de resultados de laboratorio
+   * @param orderResults objeto completo de la orden
+   * @param edad string de edad calculada
+   * @param fechaIngreso string de fecha de ingreso
+   * @param fechaGeneracion string de fecha de generación
+   * @param labLogoBase64 string base64 del logo
+   * @returns string HTML del header
+   */
+  getReportHeaderHtml(orderResults: any, edad: string, fechaIngreso: string, fechaGeneracion: string, labLogoBase64: string): string {
+    const lab = orderResults.laboratory || {};
+    const customer = orderResults.customer || {};
+    return `
+      <style>
+        .header-outer {
+          width: 80%;
+          box-sizing: border-box;
+          margin: 0 auto;
+          padding-left: 0;
+          padding-right: 0;
+        }
+        .header {
+          font-family: 'Segoe UI', sans-serif;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 2px solid #3498db;
+          padding-bottom: 10px;
+          height: 100px;
+        }
+        .logo {
+          height: 100px;
+          width: 150px;
+          object-fit: contain;
+        }
+        .lab-info {
+          text-align: right;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+        .titulo {
+          text-align: center;
+          font-size: 18px;
+          margin-top: 20px;
+          margin-bottom: 20px;
+          color: #2980b9;
+        }
+        .info-paciente {
+          font-size: 12px;
+          background: #90c3f9;
+          padding: 12px;
+          border-radius: 8px;
+          border-top: 2px;
+          margin-bottom: 25px;
+        }
+        .info-paciente-flex {
+          display: flex;
+          flex-direction: row;
+          gap: 32px;
+          justify-content: flex-start;
+        }
+        .info-col {
+          flex: 1 1 0;
+          min-width: 180px;
+        }
+      </style>
+      <div class="header-outer">
+        <div class="header">
+          <img src="${labLogoBase64}" class="logo" />
+          <div class="lab-info">
+            <strong>${lab.lab_name}</strong><br />        
+            Dir: ${lab.lab_address}<br />
+            Tel: ${lab.lab_phone}<br />
+            Email: ${lab.lab_email}
+          </div>
+        </div>
+        <div class="info-paciente">
+          <div class="info-paciente-flex">
+            <div class="info-col">
+              <strong>Paciente:</strong> ${customer.cus_first_name} ${customer.cus_second_name} ${customer.cus_first_lastname} ${customer.cus_second_lastname}<br />
+              <strong>Documento:</strong> ${customer.cus_document_type} ${customer.cus_document_number}<br />
+              <strong>Fecha de nacimiento:</strong> ${customer.cus_birthdate}<br />
+              <strong>Edad:</strong> ${edad}<br />
+              <strong>Genero:</strong> ${customer.cus_gender}<br />
+            </div>
+            <div class="info-col">
+              <strong>Teléfono:</strong> ${customer.cus_phone}<br />
+              <strong>Orden:</strong> ${orderResults.ord_code} <br />
+              <strong>Fecha de ingreso:</strong> ${fechaIngreso}<br />
+              <strong>Fecha de generación:</strong> ${fechaGeneracion}<br />
+            </div>
+          </div>
+        </div>
+        <div class="titulo">Resultados de Laboratorio</div>
+      </div>
+    `;
   }
 }

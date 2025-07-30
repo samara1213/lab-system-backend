@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 12px;
+      margin: 40px;
+      color: #2c3e50;
+    }
+   
+    .clase-examen h3 {
+      background-color: #3498db;
+      color: white;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+    }
+    th:nth-child(2), th:nth-child(3), th:nth-child(4),
+    td:nth-child(2), td:nth-child(3), td:nth-child(4) {
+      text-align: center;
+    }
+
+    th {
+      background-color: #ecf0f1;
+    }
+
+    .imagen-adjunta {
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    .imagen-adjunta img {
+      max-width: 400px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+
+    .firma {
+      margin-top: 30px;
+      text-align: right;
+      font-style: italic;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+  </style>
+</head>
+<body>
+  {{#each uniqueClassifications}}
+    <div class="clase-examen page-break">        
+      <h3>{{classification}}</h3>
+      {{#each exams}}
+        <p><strong>{{exa_name}}</strong></p>
+        {{#if (contains (toLowerCase exa_name) "hemograma")}}
+          {{#if ../images}}
+            {{#each ../images}}
+              <div style="text-align:center; margin: 24px 0;">
+                <img src="{{this}}" alt="Imagen hemograma" style="max-width:90%; max-height:400px; border:1px solid #b0c4de; border-radius:8px; box-shadow:0 2px 8px 0 rgba(0,0,0,0.08);" />
+              </div>
+            {{/each}}
+          {{else}}
+            <div style="color:#b00; text-align:center; margin:32px 0;">No se encontraron imágenes para hemograma.</div>
+          {{/if}}
+        {{else}}
+          {{#if parameters.length}}
+            <table>
+              <thead>
+                <tr>
+                  <th>Parámetro</th>
+                  <th>Resultado</th>
+                  <th>Unidades</th>
+                  <th>Referencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{#each parameters}}
+                  {{#if (startsWith par_name "*")}}
+                    <tr>
+                      <td colspan="4" style="text-align:center; font-weight:bold;">{{substring par_name 1}}</td>
+                    </tr>
+                  {{else}}
+                    {{#unless (or (eq result null) (eq result "") (eq result "-"))}}
+                    <tr>
+                      <td>{{par_name}}</td>
+                      <td>{{result}}</td>
+                      <td>{{par_unit_extent}}</td>
+                      <td>
+                        {{#if (and reference (not (eq reference "")) (not (eq reference null)) )}}
+                          {{reference}}
+                        {{else}}
+                          {{#if par_range}}
+                            Hombres: {{par_min_man}} - {{par_max_man}}<br>
+                            Mujeres: {{par_min_woman}} - {{par_max_woman}}<br>
+                            Niños: {{par_min_child}} - {{par_max_child}}
+                          {{else}}
+                            {{par_reference_value}}
+                          {{/if}}
+                        {{/if}}
+                      </td>
+                    </tr>
+                    {{/unless}}
+                  {{/if}}
+                {{/each}}
+              </tbody>
+            </table>
+          {{else}}
+            <p><em>No se registraron parámetros.</em></p>
+          {{/if}}
+        {{/if}}
+      {{/each}}
+      {{#if exams.length}}
+        {{#each exams}}
+          {{#if uniqueObservations.length}}
+            <div style="margin-top:10px;">
+              <strong>Observaciones:</strong>
+              <ul style="margin: 4px 0 12px 18px;">
+                {{#each uniqueObservations}}
+                  <li>{{this}}</li>
+                {{/each}}
+              </ul>
+            </div>
+          {{/if}}
+        {{/each}}
+      {{/if}}
+      <div class="firma">
+        {{#if ../lab_signature_base64}}
+          <img src="{{../lab_signature_base64}}" alt="Firma y sello" style="height:48px; display:block; margin-left:auto; margin-bottom:2px;" />
+        {{/if}}
+        {{../laboratory.lab_legal_representative}}<br />
+        BACTERIOLOGO-UIS
+      </div>
+    </div>
+  {{/each}}
+</body>
+</html>
