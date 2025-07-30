@@ -63,9 +63,19 @@ export class PdfService {
       });
     }
 
-    // Ruta absoluta a la plantilla HTML (siempre desde la raíz del proyecto)
-    const templatePath = path.resolve(process.cwd(), 'src/pdf/templates/result-header.html');
-    let templateHtml = await fs.readFile(templatePath, 'utf8');
+    // Usar ruta relativa a __dirname para producción y src para desarrollo
+    let templateHtml = '';
+    let templatePath = '';
+    if (__dirname.includes('dist')) {
+      templatePath = path.resolve(__dirname, './templates/result-header.html');
+    } else {
+      templatePath = path.resolve(process.cwd(), 'src/pdf/templates/result-header.html');
+    }
+    try {
+      templateHtml = await fs.readFile(templatePath, 'utf8');
+    } catch (e) {
+      throw new Error('No se encontró la plantilla result-header.html en: ' + templatePath);
+    }
 
     // 2. Prepara los datos para la plantilla
     let edad = '';
