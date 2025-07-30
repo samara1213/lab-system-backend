@@ -70,7 +70,7 @@ export class PdfService {
       templatePath = path.resolve(__dirname, './templates/result-header.html');
     } else {
       templatePath = path.resolve(process.cwd(), 'src/pdf/templates/result-header.html');
-    }
+    }    
     try {
       templateHtml = await fs.readFile(templatePath, 'utf8');
     } catch (e) {
@@ -225,7 +225,7 @@ export class PdfService {
     await page.setContent(html, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'letter', 
                                        printBackground: true,
-                                       margin: { top: '270px', 
+                                       margin: { top: '295px', 
                                                  bottom: '40px', 
                                                  left: '40px', 
                                                  right: '40px' },
