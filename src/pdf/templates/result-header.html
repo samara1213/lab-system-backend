@@ -21,6 +21,23 @@
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      table-layout: fixed;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+    }
+    th:first-child, td:first-child {
+      width: 40%;
+      min-width: 120px;
+      max-width: 300px;
+      word-break: break-word;
+    }
+    th:nth-child(2), th:nth-child(3), th:nth-child(4),
+    td:nth-child(2), td:nth-child(3), td:nth-child(4) {
+      width: 20%;
+      text-align: center;
+      word-break: break-word;
     }
 
     th, td {
