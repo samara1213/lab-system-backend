@@ -20,13 +20,14 @@ export class StorageService {
 
   async uploadFile(
     buffer: Buffer,
-    fileName: string
+    fileName: string,
+    contentType: string = 'application/pdf',
   ): Promise<string | null> {
     const bucket = process.env.SUPABASE_BUCKET!;
     const { data, error } = await this.supabase.storage
       .from(bucket)
       .upload(fileName, buffer, {
-        contentType: 'application/pdf',
+        contentType,
         upsert: true,
       });
 

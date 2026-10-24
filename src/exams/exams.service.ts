@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,20 +30,39 @@ export class ExamsService {
 
 
   /**
+   * Valida que el convenio exista en el laboratorio del usuario
+   * @param ali_id id del convenio
+   * @param lab_id id del laboratorio del usuario
+   */
+  private async assertAllianceInLaboratory(ali_id: string, lab_id: string) {
+
+    // TypeORM ignora las condiciones undefined/null: sin id no se puede validar
+    if (!ali_id || !lab_id) throw new NotFoundException('El convenio no existe');
+
+    const exists = await this.allianceRepository.exists({
+      where: { ali_id, laboratory: { lab_id } },
+    });
+
+    if (!exists) throw new NotFoundException('El convenio no existe');
+  }
+
+  /**
    * funcion que se encarga de realizar el guardado  de un examen en la base de datos
+   * @param lab_id id del laboratorio del usuario
    * @param createExamDto  datos del examen
    */
-  async create(createExamDto: CreateExamDto) {
+  async create(lab_id: string, createExamDto: CreateExamDto) {
 
     try {
 
-      // creamos la instancia del laboratorio
-      const laboratory = this.laboratoryRepository.create({
-                         lab_id: createExamDto.laboratory});
+      // el examen siempre queda en el laboratorio del usuario
+      const laboratory = this.laboratoryRepository.create({ lab_id });
 
       // verificamos si se envio un convenio
       let alliance: Alliance = null;
       if (createExamDto.alliance) {
+
+        await this.assertAllianceInLaboratory(createExamDto.alliance, lab_id);
 
         // creamos la instancia del convenio
         alliance = this.allianceRepository.create({
@@ -80,19 +99,23 @@ export class ExamsService {
   /**
    * funcion que se encarga de realizar la actualizacion d elos datos de un examen
    * @param id  identoficacion de examen a buscar
+   * @param lab_id id del laboratorio del usuario
    * @param updateExamDto  datos a actualizar
    * @returns respuesta del proceso
    */
-  async update(id: string, updateExamDto: UpdateExamDto) {
+  async update(id: string, lab_id: string, updateExamDto: UpdateExamDto) {
 
     try {
 
-      let laboratory: Laboratory = null;
-      // Si se envía laboratory, actualizamos la relación
-      if (updateExamDto.laboratory) {
-        
-         laboratory = this.laboratoryRepository.create({ lab_id: updateExamDto.laboratory });
-      }
+      // el examen debe pertenecer al laboratorio del usuario
+      const examExists = await this.examRepository.exists({
+        where: { exa_id: id, laboratory: { lab_id } },
+      });
+
+      if (!examExists) throw new NotFoundException('No se encuentra registro con este valor');
+
+      // el laboratorio del examen no se cambia desde aqui
+      const { laboratory, ...examData } = updateExamDto;
 
       // inicalizamos la variable de convenio
       let alliance: Alliance = null;
@@ -100,14 +123,14 @@ export class ExamsService {
       // validamos si se envio y se retiro
       if (updateExamDto.alliance) {
 
+        await this.assertAllianceInLaboratory(updateExamDto.alliance, lab_id);
         alliance = this.allianceRepository.create({ ali_id: updateExamDto.alliance });
       }
 
       // Preload busca y prepara la entidad para actualizar
       const exam = await this.examRepository.preload({
         exa_id: id,
-        ...updateExamDto,
-        laboratory,
+        ...examData,
         alliance});
       
       // Si no se encuentra el examen, lanzamos una excepción
@@ -133,20 +156,21 @@ export class ExamsService {
   /**
    * Funcion que se encarga de buscar un examen por su id 
    * @param id  indicativo del examen
+   * @param lab_id id del laboratorio del usuario
    * @returns datos del examen
    */
-  async findOne(id: string) {
+  async findOne(id: string, lab_id: string) {
 
     try {
 
-      // se busca el registro
+      // se busca el registro dentro del laboratorio del usuario
       const exam = await this.examRepository.findOne({
-        where: { exa_id: id },
+        where: { exa_id: id, laboratory: { lab_id } },
         relations: ['laboratory', 'alliance', 'parameters'],
       });
 
       // validamos que el registro exista
-      if (!exam) throw new BadRequestException('No se encuentra registro con este valor');
+      if (!exam) throw new NotFoundException('No se encuentra registro con este valor');
 
       // se regresa en el atributo data los datos del examen
       return {

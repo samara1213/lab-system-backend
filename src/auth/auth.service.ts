@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { UpdateAuthDto } from './dto/update-auth.dto';
 import * as crypto from 'crypto';
@@ -149,11 +149,11 @@ export class AuthService {
         select: { use_contrasena: true, use_id: true, use_primer_ingreso: true}  
       });
 
-      // validamos si existe el ususario
-      if (!user) throw new UnauthorizedException('El usuario o contraseña incorrecto');
+      // validamos si existe el ususario y que la contraseña sea valida
+      // (400 y no 401: el interceptor del front trata todo 401 como sesion expirada)
+      if (!user) throw new BadRequestException('El usuario o contraseña incorrecto');
 
-      // si el usuariuo existe vaidamos la contraseña sea valida
-      if (!bcrypt.compareSync(use_old_contrasena, user.use_contrasena)) throw new UnauthorizedException('El usuario o contraseña incorrecto');
+      if (!bcrypt.compareSync(use_old_contrasena, user.use_contrasena)) throw new BadRequestException('El usuario o contraseña incorrecto');
 
       // se prepara el ussuario a modificar
       const updateUser = await this.userRepository.preload({
@@ -316,6 +316,9 @@ export class AuthService {
    * @param error generado
   */
   private handleExceptions(error: any) {
+
+    // las excepciones HTTP ya construidas (401, 404...) se propagan sin cambios
+    if (error instanceof HttpException) throw error;
 
     //this.logger.error(error)
     console.log(error)

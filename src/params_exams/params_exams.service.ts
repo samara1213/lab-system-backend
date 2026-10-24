@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateParamsExamDto } from './dto/create-params_exam.dto';
 import { UpdateParamsExamDto } from './dto/update-params_exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -26,14 +26,35 @@ export class ParamsExamsService {
   ){}
 
   /**
-   * funcion que se encarga de realizar el registro de un 
-   * paramyro a un examen
-   * @param createParamsExamDto datos del parametro a asignar 
-   * @returns 
+   * Valida que el examen exista en el laboratorio del usuario
+   * @param exa_id id del examen
+   * @param lab_id id del laboratorio del usuario
    */
-  async create(createParamsExamDto: CreateParamsExamDto) {
+  private async assertExamInLaboratory(exa_id: string, lab_id: string) {
+
+    // TypeORM ignora las condiciones undefined/null: sin id no se puede validar
+    if (!exa_id || !lab_id) throw new NotFoundException('El examen no existe');
+
+    const exists = await this.examRepository.exists({
+      where: { exa_id, laboratory: { lab_id } },
+    });
+
+    if (!exists) throw new NotFoundException('El examen no existe');
+  }
+
+  /**
+   * funcion que se encarga de realizar el registro de un
+   * paramyro a un examen
+   * @param lab_id id del laboratorio del usuario
+   * @param createParamsExamDto datos del parametro a asignar
+   * @returns
+   */
+  async create(lab_id: string, createParamsExamDto: CreateParamsExamDto) {
 
     try {
+
+      // el examen debe pertenecer al laboratorio del usuario
+      await this.assertExamInLaboratory(createParamsExamDto.exam, lab_id);
 
       // Buscar el examen asociado
       const exam = this.examRepository.create({ exa_id: createParamsExamDto.exam });
@@ -64,22 +85,30 @@ export class ParamsExamsService {
    * funcion que se encarga de realizar la actualizacion de un parametro
    * registrado en la base de datos
    * @param id id del parametros
+   * @param lab_id id del laboratorio del usuario
    * @param updateParamsExamDto datos a actualizar
-   * @returns 
+   * @returns
    */
-  async update(id: string, updateParamsExamDto: UpdateParamsExamDto) {
-    
+  async update(id: string, lab_id: string, updateParamsExamDto: UpdateParamsExamDto) {
+
     try {
 
-      // verificamos si el id del examen es valido
-      const exam = this.examRepository.create({ exa_id: updateParamsExamDto.exam });
+      // el parámetro debe pertenecer a un examen del laboratorio del usuario
+      const paramExists = await this.paramsExamsRepository.exists({
+        where: { par_id: id, exam: { laboratory: { lab_id } } },
+      });
+
+      if (!paramExists) throw new NotFoundException('Parámetro no valido con los datos enviados');
+
+      // si se cambia de examen, el nuevo también debe ser del laboratorio
+      const { exam: exa_id, ...paramData } = updateParamsExamDto;
+      if (exa_id) await this.assertExamInLaboratory(exa_id, lab_id);
 
       // Preparamos los datos a actualizar usando los nombres correctos
       const paramExam = await this.paramsExamsRepository.preload({
         par_id: id,
-        ...updateParamsExamDto,
-        exam,
-      
+        ...paramData,
+        ...(exa_id && { exam: this.examRepository.create({ exa_id }) }),
       });
 
       if (!paramExam) throw new BadRequestException('Parámetro no valido con los datos enviados');
@@ -104,12 +133,13 @@ export class ParamsExamsService {
   /**
    * Lista los parámetros de un examen por su ID
    * @param exa_id - ID del examen
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Lista de parámetros asociados al examen
    */
-  async findByExamId(exa_id: string) {
+  async findByExamId(exa_id: string, lab_id: string) {
     try {
       const params = await this.paramsExamsRepository.find({
-        where: { exam: { exa_id } },
+        where: { exam: { exa_id, laboratory: { lab_id } } },
       });
       return {
         status: 200,

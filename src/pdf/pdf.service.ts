@@ -1,5 +1,6 @@
 // ...existing code...
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -265,16 +266,18 @@ export class PdfService {
   }
 
   /**
-   * Recibe un archivo, lo sube al storage y retorna la url y el nombre original
-   * @param file archivo recibido
-   * @returns objeto con url y nombre
+   * Sube un adjunto al storage con un nombre generado por el servidor
+   * @param buffer contenido del archivo ya validado
+   * @param lab_id id del laboratorio dueño del archivo
+   * @param fileType extension y mimetype detectados del contenido
+   * @returns ruta del archivo en el storage
    */
-  async uploadFileBuffer(file: Express.Multer.File): Promise<string> {
+  async uploadFileBuffer(buffer: Buffer, lab_id: string, fileType: { ext: string; mime: string }): Promise<string> {
     try {
-      // Define el nombre del archivo para el storage
-      const fileName = `adjuntos/${Date.now()}-${file.originalname}`;
-      // Sube el archivo al storage
-      const urlResult = await this.storageService.uploadFile(file.buffer, fileName);
+      // nombre unico; nunca se usa el nombre original enviado por el cliente
+      const fileName = `${lab_id}/adjuntos/${randomUUID()}.${fileType.ext}`;
+      // Sube el archivo al storage con su tipo real
+      const urlResult = await this.storageService.uploadFile(buffer, fileName, fileType.mime);
 
       return urlResult;
 

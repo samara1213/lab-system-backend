@@ -2,8 +2,11 @@ import { ConflictException, Injectable, InternalServerErrorException, NotFoundEx
 import { CreateOrderDto } from './dto/create-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { FilterOrderDto } from './dto/filter-order.dto';
+import { Customer } from '../customers/entities/customer.entity';
+import { Exam } from '../exams/entities/exam.entity';
+import { NOT_FOUND_MESSAGE } from '../auth/helpers/laboratory-access.helper';
 import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { PdfService } from '../pdf/pdf.service';
@@ -26,16 +29,49 @@ export class OrdersService {
   ) {}
   
   /**
+   * Valida que una orden exista y pertenezca al laboratorio indicado
+   * @param ord_id - ID de la orden
+   * @param lab_id - ID del laboratorio del usuario
+   */
+  async assertOrderInLaboratory(ord_id: string, lab_id: string) {
+
+    // TypeORM ignora las condiciones undefined/null: sin id no se puede validar
+    if (!ord_id || !lab_id) throw new NotFoundException(NOT_FOUND_MESSAGE);
+
+    const exists = await this.orderRepository.exists({
+      where: { ord_id, laboratory: { lab_id } },
+    });
+
+    if (!exists) throw new NotFoundException(NOT_FOUND_MESSAGE);
+  }
+
+  /**
    * Método para crear una nueva orden de laboratorio
+   * @param lab_id - ID del laboratorio del usuario
    * @param createOrderDto - Datos de la orden a crear
    * @returns Respuesta del proceso de creación
    */
-  async create(createOrderDto: CreateOrderDto) {
+  async create(lab_id: string, createOrderDto: CreateOrderDto) {
 
     try {
 
-      // desestructuramos el DTO para obtener los IDs de exámenes, laboratorio y cliente
-      const { exa_ids, lab_id, cus_id, ...restOrders } = createOrderDto;
+      // desestructuramos el DTO para obtener los IDs de exámenes y cliente
+      const { exa_ids, lab_id: _labId, cus_id, ...restOrders } = createOrderDto;
+
+      // el paciente debe pertenecer al laboratorio del usuario
+      const customerExists = await this.orderRepository.manager.exists(Customer, {
+        where: { cus_id, laboratory: { lab_id } },
+      });
+      if (!customerExists) throw new NotFoundException('El paciente no existe');
+
+      // todos los exámenes deben pertenecer al laboratorio del usuario
+      const uniqueExamIds = [...new Set(exa_ids ?? [])];
+      if (uniqueExamIds.length > 0) {
+        const examsCount = await this.orderRepository.manager.count(Exam, {
+          where: { exa_id: In(uniqueExamIds), laboratory: { lab_id } },
+        });
+        if (examsCount !== uniqueExamIds.length) throw new NotFoundException('Uno o más exámenes no existen');
+      }
 
       // creamos la referencia de la orden de laboratorio
       const orders = this.orderRepository.create({
@@ -45,9 +81,9 @@ export class OrdersService {
       });
 
       // validamos is tenemos ids de exámenes
-      if (exa_ids && exa_ids.length > 0) {
-      
-        orders.exams = exa_ids.map((id) => ({ exa_id: id }) as any); // Asignar solo el ID del examen
+      if (uniqueExamIds.length > 0) {
+
+        orders.exams = uniqueExamIds.map((id) => ({ exa_id: id }) as any); // Asignar solo el ID del examen
       
       } else {
 
@@ -72,16 +108,17 @@ export class OrdersService {
 
 
   /**
-   * Método para encontrar una orden por su ID
+   * Método para encontrar una orden por su ID dentro del laboratorio
    * @param id - ID de la orden a buscar
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Orden encontrada
    */
-  async findOne(id: string) {
+  async findOne(id: string, lab_id: string) {
 
     try {
-    
+
       const order = await this.orderRepository.findOne({
-        where: { ord_id: id },
+        where: { ord_id: id, laboratory: { lab_id } },
         relations: [
           'laboratory',
           'customer',
@@ -224,13 +261,16 @@ export class OrdersService {
 
   /**
    * Método para actualizar una orden existente a estado cancelada
-   * @param id - ID de la orden a actualizar
-   * @param updateOrderDto - Nuevos datos para la orden
+   * @param ord_id - ID de la orden a cancelar
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Respuesta del proceso de actualización
    */
-  async remove(ord_id: string) {
+  async remove(ord_id: string, lab_id: string) {
 
     try {
+
+      // la orden debe existir en el laboratorio del usuario
+      await this.assertOrderInLaboratory(ord_id, lab_id);
 
       const order = await this.orderRepository.preload({ 
         ord_id,
@@ -254,21 +294,30 @@ export class OrdersService {
   }
 
   /**
-   * Método para cambiar el estado de una orden
+   * Actualiza el estado de una orden. Uso interno: quien lo llama ya validó
+   * que la orden pertenece al laboratorio del usuario
+   * @param ord_id - ID de la orden
+   * @param ord_status - nuevo estado
+   */
+  async updateStatus(ord_id: string, ord_status: string) {
+
+    await this.orderRepository.update({ ord_id }, { ord_status });
+  }
+
+  /**
+   * Método para cambiar el estado de una orden del laboratorio del usuario
    * @param filterOrderDto - DTO con los filtros ord_id y ord_status
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Respuesta del proceso de actualización
    */
-  async changeStatus(filterOrderDto: FilterOrderDto) {
+  async changeStatus(filterOrderDto: FilterOrderDto, lab_id: string) {
 
     try {
 
-      const order = await this.orderRepository.preload({ 
-        ord_id: filterOrderDto.ord_id,
-        ord_status: filterOrderDto.ord_status // Cambiamos el estado a cancelada
-      });
+      // la orden debe existir en el laboratorio del usuario
+      await this.assertOrderInLaboratory(filterOrderDto.ord_id, lab_id);
 
-      // cambiamos el estado de la orden a cancelada
-      await this.orderRepository.save(order);
+      await this.updateStatus(filterOrderDto.ord_id, filterOrderDto.ord_status);
 
       return {
         status: 200,
@@ -319,12 +368,13 @@ export class OrdersService {
    * Busca una orden por su ID y retorna la orden junto con los resultados asociados,
    * estructurando los resultados dentro de los parámetros de cada examen.
    * @param ord_id - ID de la orden
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Orden con exámenes, parámetros y resultados jerarquizados
    */
-  async generatePdfResults(ord_id: string) {
+  async generatePdfResults(ord_id: string, lab_id: string) {
     try {
-      
-      const { data } = await this.findOrderWithResults(ord_id); // Obtenemos la orden con resultados
+
+      const { data } = await this.findOrderWithResults(ord_id, lab_id); // Obtenemos la orden con resultados
 
       // Generar PDF de resultados ontenemos la url
       const urlResult = await this.pdfService.generateResult(data); // Generar PDF de resultados (opcional)
@@ -348,12 +398,13 @@ export class OrdersService {
   /**
    * Funcion que regresa los resultados de una orden por su ID
    * @param ord_id id de la orden a buscar
+   * @param lab_id id del laboratorio del usuario
    * @returns resultados de la orden
    */
-  async findResultsByOrder(ord_id: string) {
+  async findResultsByOrder(ord_id: string, lab_id: string) {
     try {
-      
-      const { data } = await this.findOrderWithResults(ord_id); // Obtenemos la orden con resultados
+
+      const { data } = await this.findOrderWithResults(ord_id, lab_id); // Obtenemos la orden con resultados
 
       return {
         status: 200,
@@ -369,12 +420,13 @@ export class OrdersService {
    * Busca una orden por su ID y retorna la orden junto con los resultados asociados,
    * estructurando los resultados dentro de los parámetros de cada examen.
    * @param ord_id - ID de la orden
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Orden con exámenes, parámetros y resultados jerarquizados
    */
-  async findOrderWithResults(ord_id: string) {
+  async findOrderWithResults(ord_id: string, lab_id: string) {
     try {
       const order = await this.orderRepository.findOne({
-        where: { ord_id },
+        where: { ord_id, laboratory: { lab_id } },
         relations: [
           'laboratory',
           'customer',
@@ -407,11 +459,11 @@ export class OrdersService {
   /**
    * Obtiene la URL del PDF y los datos del cliente para una orden finalizada específica
    */
-  async getUrlResult(ord_id: string) {
+  async getUrlResult(ord_id: string, lab_id: string) {
 
     try {
       const order = await this.orderRepository.findOne({
-        where: { ord_id: ord_id, ord_status: 'FINALIZADA' },
+        where: { ord_id: ord_id, ord_status: 'FINALIZADA', laboratory: { lab_id } },
         relations: ['customer'],
         select: ['ord_pdf_url', 'ord_id', 'customer'],
       });
@@ -425,7 +477,7 @@ export class OrdersService {
           fullName: `${order.customer?.cus_first_name ?? ''}
                      ${order.customer?.cus_second_name ?? ''}
                      ${order.customer?.cus_first_lastname ?? ''}
-                     ${order.customer?.cus_second_lastname ?? ''}`,
+                     ${order.customer?.cus_second_lastname ?? ''}`.replace(/\s+/g, ' ').trim(),
           email: order.customer?.cus_email ?? '',
       }    
       };
@@ -439,14 +491,15 @@ export class OrdersService {
   /**
    * Envía un correo con los resultados de la orden especificada
    * @param ord_id - ID de la orden cuyos resultados se enviarán por correo
+   * @param lab_id - ID del laboratorio del usuario
    * @returns Respuesta del proceso de envío de correo
    */
-  async sendEmailResults(ord_id: string) {
+  async sendEmailResults(ord_id: string, lab_id: string) {
 
     try {
 
       // Obtenemos los datos d ela orden para enviar el correo
-      const dataResult = await this.getUrlResult(ord_id);
+      const dataResult = await this.getUrlResult(ord_id, lab_id);
 
       // ontnemos la url prefirmada del PDF
       const urlResult = await this.storageService.getSignedUrl(dataResult.data.ord_pdf_url);
@@ -473,14 +526,15 @@ export class OrdersService {
   /**
    * Función para generar una URL prefirmada del PDF de resultados de una orden
    * @param ord_id ID de la orden para generar la URL prefirmada del PDF
-   * @returns 
+   * @param lab_id ID del laboratorio del usuario
+   * @returns
    */
-  async generateUrlPrefirmate(ord_id: string) {
+  async generateUrlPrefirmate(ord_id: string, lab_id: string) {
 
     try {
 
       // Obtenemos los datos d ela orden para enviar el correo
-      const dataResult = await this.getUrlResult(ord_id);
+      const dataResult = await this.getUrlResult(ord_id, lab_id);
 
       // ontnemos la url prefirmada del PDF
       const urlResult = await this.storageService.getSignedUrl(dataResult.data.ord_pdf_url);

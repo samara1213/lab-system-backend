@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module';
 import { EmailsModule } from './emails/emails.module';
 import { CustomersModule } from './customers/customers.module';
@@ -30,7 +31,12 @@ import { AttachedModule } from './attached/attached.module';
       schema  : process.env.DB_SCHEMA,
       autoLoadEntities: true,
       synchronize: false
-    }),    
+    }),
+    // limites de peticiones; solo se aplican donde se usa ThrottlerGuard (login y cambio de contraseña)
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 10 }],
+      errorMessage: 'Demasiados intentos. Espere un minuto e intente de nuevo',
+    }),
     AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, AttachedModule, 
   ],
   controllers: [],

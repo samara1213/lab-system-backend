@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Repository } from 'typeorm';
@@ -25,17 +25,18 @@ export class CustomersService {
 
   /**
    * Funcion que se encarga de realizar el registro de un nuevo cliente a la empresa
-   * @param createCustomerDto 
-   * @returns 
+   * @param lab_id id del laboratorio del usuario
+   * @param createCustomerDto
+   * @returns
    */
-  async create(createCustomerDto: CreateCustomerDto) {
+  async create(lab_id: string, createCustomerDto: CreateCustomerDto) {
 
     try {
-    
-      // Asignar la relación con laboratorio usando el id recibido
+
+      // el cliente siempre queda en el laboratorio del usuario
       const customer = this.customerRepository.create({
         ...createCustomerDto,
-        laboratory: { lab_id: createCustomerDto.laboratory }
+        laboratory: { lab_id }
       });
     
       // Guardar el cliente en la base de datos
@@ -114,28 +115,28 @@ export class CustomersService {
    * Funcion encargada de realizar la actualizacion de clientes
    * en la base de datos
    * @param id iddel cliente
-   * @param updateCustomerDto dato para la actualizacion 
-   * @param user datos d el ususario logueado
+   * @param lab_id id del laboratorio del usuario
+   * @param updateCustomerDto dato para la actualizacion
    * @returns mensaje de respuesta del proceso
    */
-  async update(id: string, updateCustomerDto: UpdateCustomerDto) {
+  async update(id: string, lab_id: string, updateCustomerDto: UpdateCustomerDto) {
 
     try {
 
-      // precargamos los datos del usuario a actualizar
-      let laboratory = undefined;
+      // el cliente debe pertenecer al laboratorio del usuario
+      const exists = await this.customerRepository.exists({
+        where: { cus_id: id, laboratory: { lab_id } },
+      });
 
-      if (updateCustomerDto.laboratory) {
-        laboratory = { lab_id: updateCustomerDto.laboratory };
-      }
+      if (!exists) throw new NotFoundException('No existe cliente para este id');
+
+      // el laboratorio del cliente no se cambia desde aqui
+      const { laboratory, ...customerData } = updateCustomerDto;
 
       const customer = await this.customerRepository.preload({
         cus_id: id,
-        ...updateCustomerDto,
-        ...(laboratory && { laboratory })
+        ...customerData,
       });
-
-      if (!customer) throw new BadRequestException('No existe cliente para este id');
 
       await this.customerRepository.save(customer);
 

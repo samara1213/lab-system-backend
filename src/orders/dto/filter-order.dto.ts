@@ -1,16 +1,16 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class FilterOrderDto {
   @IsOptional()
-  @IsString()
+  @IsUUID()
   ord_id?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   lab_id?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   cus_id?: string;
 
   @IsOptional()

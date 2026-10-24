@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConflictException, HttpException, Injectable, InternalServerErrorException } from '@nestjs/common';
 
 @Injectable()
 export class ExceptionService {
@@ -10,15 +10,14 @@ export class ExceptionService {
    */
   handleDBError(error: any) {
 
+    // las excepciones HTTP ya construidas (404, 403, 409...) se propagan sin cambios
+    if (error instanceof HttpException) throw error;
+
     console.error('Database Error:', error);
     if (error.code === '23505') {
 
       throw new ConflictException('el registro ya existe en la base de datos');
-    
-    } else if (error.status === 400 || error.status === 404) {
 
-      throw new BadRequestException(error.response.message);
-    
     } else {
 
       throw new InternalServerErrorException('En este momento no logramos procesar su solicitud, por favor intente más tarde');
