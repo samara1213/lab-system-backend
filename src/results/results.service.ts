@@ -91,7 +91,11 @@ export class ResultsService {
 
       const results = await this.resultRepository.find({
         where: { order: { ord_id } },
-        relations: ['order', 'exam', 'param'],
+        relations: {
+          order: true,
+          exam: true,
+          param: true
+        },
       });
 
       return {
@@ -120,7 +124,11 @@ export class ResultsService {
       // el resultado debe pertenecer a una orden del laboratorio del usuario
       const current = await this.resultRepository.findOne({
         where: { res_id: id, order: { laboratory: { lab_id } } },
-        relations: ['order', 'exam', 'param'],
+        relations: {
+          order: true,
+          exam: true,
+          param: true
+        },
       });
 
       if (!current) throw new NotFoundException('No existe un resultado con el ID proporcionado');

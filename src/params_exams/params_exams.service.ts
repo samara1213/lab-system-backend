@@ -1,12 +1,10 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateParamsExamDto } from './dto/create-params_exam.dto';
 import { UpdateParamsExamDto } from './dto/update-params_exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ParamsExam } from './entities/params_exam.entity';
 import { Repository } from 'typeorm';
-import { User } from '../auth/entities/user.entity';
 import { Exam } from '../exams/entities/exam.entity';
-import { stat } from 'fs';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()

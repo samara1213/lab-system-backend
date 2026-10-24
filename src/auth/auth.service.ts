@@ -1,10 +1,9 @@
-import { BadRequestException, HttpException, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { BadRequestException, HttpException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Tree } from 'typeorm';
+import { Repository } from 'typeorm';
+import { describeError } from '../exceptions/exception/safe-error.helper';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto';
@@ -18,6 +17,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
+
+  private readonly logger = new Logger('AuthService');
 
   constructor(
 
@@ -100,13 +101,17 @@ export class AuthService {
     const user = await this.userRepository.findOne({
       where: { use_correo },
       select: { use_correo: true, use_contrasena: true, use_estado: true, use_primer_ingreso: true, use_id: true },
-      relations: [
-        'laboratory',
-        'role',
-        'role.menus',
-        'role.menus.children',
-        'role.menus.children.children',
-      ],
+      relations: {
+        laboratory: true,
+
+        role: {
+          menus: {
+            children: {
+              children: true
+            }
+          }
+        }
+      },
     })
 
     // validamos que el ussuario exista
@@ -203,7 +208,9 @@ export class AuthService {
       // buscamos los ususarios por el id del laboratorio
       const users = await this.userRepository.find({
         where: { laboratory: { lab_id } },
-        relations: ['role'],
+        relations: {
+          role: true
+        },
         });
       
       // regresamos la lista de usuarios
@@ -320,8 +327,8 @@ export class AuthService {
     // las excepciones HTTP ya construidas (401, 404...) se propagan sin cambios
     if (error instanceof HttpException) throw error;
 
-    //this.logger.error(error)
-    console.log(error)
+    // se registra sin parametros de la consulta (pueden traer correos o hashes)
+    this.logger.error(describeError(error), error?.stack);
     if (23505 === +error.code) throw new BadRequestException('El correo ingresado ya existe');
 
     // error no encontrado

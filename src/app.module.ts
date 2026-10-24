@@ -17,20 +17,19 @@ import { ExceptionModule } from './exceptions/exception/exception.module';
 import { PdfModule } from './pdf/pdf.module';
 import { StorageModule } from './storage/storage.module';
 import { AttachedModule } from './attached/attached.module';
+import { validateEnv } from './config/env.validation';
+import { buildDataSourceOptions } from './database/database.config';
 
 
 @Module({
-  imports: [ConfigModule.forRoot(),
-    TypeOrmModule.forRoot({
-      type:    'postgres',
-      host:     process.env.DB_HOST,
-      port:    +process.env.DB_PORT,
-      database: process.env.DB_NAME,
-      username: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      schema  : process.env.DB_SCHEMA,
-      autoLoadEntities: true,
-      synchronize: false
+  imports: [
+    // valida las variables de entorno al arrancar
+    ConfigModule.forRoot({ validate: validateEnv }),
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        ...buildDataSourceOptions(),
+        autoLoadEntities: true,
+      }),
     }),
     // limites de peticiones; solo se aplican donde se usa ThrottlerGuard (login y cambio de contraseña)
     ThrottlerModule.forRoot({

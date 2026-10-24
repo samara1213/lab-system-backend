@@ -4,6 +4,7 @@ import { Customer } from '../../customers/entities/customer.entity';
 import { Exam } from '../../exams/entities/exam.entity';
 import { Result } from '../../results/entities/result.entity';
 import { Attached } from '../../attached/entities/attached.entity';
+import { decimalTransformer } from '../../common/transformers/decimal.transformer';
 
 @Entity('orders')
 export class Order {
@@ -18,16 +19,16 @@ export class Order {
   @CreateDateColumn({ type: 'timestamp' })
   ord_created_at: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn({ type: 'timestamp' })
   ord_updated_at: Date;
 
-  @Column('decimal', { precision: 10, scale: 2 })
+  @Column('decimal', { precision: 10, scale: 2, transformer: decimalTransformer })
   ord_total_value: number;
 
-  @Column('decimal', { precision: 5, scale: 2, default: 0 })
+  @Column('decimal', { precision: 5, scale: 2, default: 0, transformer: decimalTransformer })
   ord_discount_percentage?: number;
 
-  @Column('decimal', { precision: 10, scale: 2, default: 0 })
+  @Column('decimal', { precision: 10, scale: 2, default: 0, transformer: decimalTransformer })
   ord_discount_value?: number;
 
   @Column('text', { default: 'PENDIENTE' })

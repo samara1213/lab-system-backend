@@ -1,74 +1,50 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
-import { CreateExamDto } from './dto/create-exam.dto';
-import { UpdateExamDto } from './dto/update-exam.dto';
-import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('ExamsController', () => {
   let controller: ExamsController;
-  let service: ExamsService;
-
-  const mockExam = { exa_id: 'uuid', exa_name: 'Examen', exa_description: 'desc', exa_price: 10 };
-  const mockExams = [mockExam];
-
-  const examsServiceMock = {
-    create: jest.fn().mockResolvedValue({ status: 201, message: 'El registro de examen se ha creado correctamente' }),
-    update: jest.fn().mockResolvedValue({ status: 200, message: 'El registro de examen se ha actualizado correctamente' }),
-    findOne: jest.fn().mockResolvedValue({ status: 200, data: mockExam }),
-    findAllByLaboratory: jest.fn().mockResolvedValue({ status: 200, data: mockExams }),
+  const user = { laboratory: { lab_id: 'lab-a' } } as any;
+  const mockExamsService = {
+    create: jest.fn(),
+    findAllByLaboratory: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ExamsController],
-      providers: [
-        { provide: ExamsService, useValue: examsServiceMock },
-        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
-      ],
+      providers: [{ provide: ExamsService, useValue: mockExamsService }],
     }).compile();
-
     controller = module.get<ExamsController>(ExamsController);
-    service = module.get<ExamsService>(ExamsService);
+    jest.clearAllMocks();
   });
 
-  it('debe estar definido', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('create', () => {
-    it('debe delegar a ExamsService.create', async () => {
-      const dto: CreateExamDto = { exa_name: 'Examen', exa_description: 'desc', exa_price: 10, laboratory: 'lab-id' } as any;
-      const result = await controller.create(dto);
-      expect(service.create).toHaveBeenCalledWith(dto);
-      expect(result.status).toBe(201);
-    });
+  it('crea el examen en el laboratorio del usuario', async () => {
+    const dto = { exa_name: 'Hemograma', exa_price: 10, laboratory: 'lab-a' };
+    await controller.create(user, dto as any);
+    expect(mockExamsService.create).toHaveBeenCalledWith('lab-a', dto);
   });
 
-  describe('update', () => {
-    it('debe delegar a ExamsService.update', async () => {
-      const dto: UpdateExamDto = { exa_name: 'Nuevo' } as any;
-      const result = await controller.update('uuid', dto);
-      expect(service.update).toHaveBeenCalledWith('uuid', dto);
-      expect(result.status).toBe(200);
-    });
+  it('lista, consulta y actualiza dentro del laboratorio del usuario', async () => {
+    await controller.findAllByCompany(user, 'lab-a');
+    await controller.findOne(user, 'exa-1');
+    await controller.update(user, 'exa-1', { exa_name: 'X' } as any);
+    expect(mockExamsService.findAllByLaboratory).toHaveBeenCalledWith('lab-a');
+    expect(mockExamsService.findOne).toHaveBeenCalledWith('exa-1', 'lab-a');
+    expect(mockExamsService.update).toHaveBeenCalledWith('exa-1', 'lab-a', { exa_name: 'X' });
   });
 
-  describe('findOne', () => {
-    it('debe delegar a ExamsService.findOne', async () => {
-      const result = await controller.findOne('uuid');
-      expect(service.findOne).toHaveBeenCalledWith('uuid');
-      expect(result.status).toBe(200);
-      expect(result.data).toEqual(mockExam);
-    });
-  });
-
-  describe('findAllByCompany', () => {
-    it('debe delegar a ExamsService.findAllByLaboratory', async () => {
-      const result = await controller.findAllByCompany('lab-id');
-      expect(service.findAllByLaboratory).toHaveBeenCalledWith('lab-id');
-      expect(result.status).toBe(200);
-      expect(result.data).toEqual(mockExams);
-    });
+  it('rechaza con 404 un laboratorio ajeno', () => {
+    expect(() => controller.findAllByCompany(user, 'lab-b')).toThrow(NotFoundException);
+    expect(() => controller.create(user, { laboratory: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(mockExamsService.findAllByLaboratory).not.toHaveBeenCalled();
+    expect(mockExamsService.create).not.toHaveBeenCalled();
   });
 });

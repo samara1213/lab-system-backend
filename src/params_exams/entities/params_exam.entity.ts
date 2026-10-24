@@ -28,42 +28,36 @@ export class ParamsExam {
     par_unit_extent: string;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })
     par_min_man: number;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })
     par_max_man: number;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })
     par_min_woman: number;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })
     par_max_woman: number;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })
     par_min_child: number;
 
     @Column('decimal', {
-        scale: 3,
         nullable: true
 
     })

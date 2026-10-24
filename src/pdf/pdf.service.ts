@@ -37,14 +37,16 @@ export class PdfService {
       });
     }
     if (!Handlebars.helpers.or) {
-      Handlebars.registerHelper('or', function() {
-        const args = Array.prototype.slice.call(arguments, 0, -1);
+      Handlebars.registerHelper('or', function(...values: any[]) {
+        // el ultimo argumento son las opciones de Handlebars
+        const args = values.slice(0, -1);
         return args.some(Boolean);
       });
     }
         if (!Handlebars.helpers.and) {
-      Handlebars.registerHelper('and', function() {
-        const args = Array.prototype.slice.call(arguments, 0, -1);
+      Handlebars.registerHelper('and', function(...values: any[]) {
+        // el ultimo argumento son las opciones de Handlebars
+        const args = values.slice(0, -1);
         return args.every(Boolean);
       });
     }
@@ -74,7 +76,7 @@ export class PdfService {
     }    
     try {
       templateHtml = await fs.readFile(templatePath, 'utf8');
-    } catch (e) {
+    } catch {
       throw new Error('No se encontró la plantilla result-header.html en: ' + templatePath);
     }
 
@@ -102,7 +104,7 @@ export class PdfService {
         const logoBuffer = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_logo}`);
         const ext = orderResults.laboratory.lab_logo.split('.').pop()?.toLowerCase() || 'png';
         labLogoBase64 = `data:image/${ext};base64,${logoBuffer.toString('base64')}`;
-      } catch (e) {
+      } catch {
         labLogoBase64 = '';
       }
     }
@@ -115,7 +117,7 @@ export class PdfService {
       try {
         buffer = await this.storageService.getPrivateImageBuffer(attached.att_file_url);
         ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
-      } catch (e) {
+      } catch {
         buffer = null;
         ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
       }
@@ -131,7 +133,7 @@ export class PdfService {
         const bufferFirma = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_signature}`);
         const extFirma = orderResults.laboratory.lab_signature.split('.').pop()?.toLowerCase() || 'png';
         labSignatureBase64 = `data:image/${extFirma};base64,${bufferFirma.toString('base64')}`;
-      } catch (e) {
+      } catch {
         labSignatureBase64 = '';
       }
     }
@@ -148,7 +150,7 @@ export class PdfService {
       '7': 'MICROBIOLOGIA',
       '8': 'HORMONAS',
     };
-    let uniqueClassifications: any[] = [];
+    const uniqueClassifications: any[] = [];
     if (Array.isArray(orderResults.exams)) {
       const seen = new Set();
       for (const exam of orderResults.exams) {
@@ -223,7 +225,8 @@ export class PdfService {
     // 4. Generar PDF con Puppeteer
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    // todo el contenido va embebido (imagenes en base64): basta con esperar el evento load
+    await page.setContent(html, { waitUntil: 'load' });
     const pdfBuffer = await page.pdf({ format: 'letter', 
                                        printBackground: true,
                                        margin: { top: '295px', 

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
@@ -10,7 +10,6 @@ import { NOT_FOUND_MESSAGE } from '../auth/helpers/laboratory-access.helper';
 import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { PdfService } from '../pdf/pdf.service';
-import { stat } from 'fs';
 import { EmailsService } from '../emails/emails.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -83,7 +82,9 @@ export class OrdersService {
       // validamos is tenemos ids de exámenes
       if (uniqueExamIds.length > 0) {
 
-        orders.exams = uniqueExamIds.map((id) => ({ exa_id: id }) as any); // Asignar solo el ID del examen
+        orders.exams = uniqueExamIds.map((id) => (({
+          exa_id: id
+        }) as any)); // Asignar solo el ID del examen
       
       } else {
 
@@ -119,12 +120,14 @@ export class OrdersService {
 
       const order = await this.orderRepository.findOne({
         where: { ord_id: id, laboratory: { lab_id } },
-        relations: [
-          'laboratory',
-          'customer',
-          'exams',
-          'exams.parameters'
-        ],
+        relations: {
+          laboratory: true,
+          customer: true,
+
+          exams: {
+            parameters: true
+          }
+        },
       });
     
       if (!order) {
@@ -184,7 +187,9 @@ export class OrdersService {
           ord_status: filterOrderDto.ord_status,
         },
         order: { ord_created_at: 'DESC' },
-        relations: ['customer'], // <-- Agrega la relación con customers
+        relations: {
+          customer: true
+        }, // <-- Agrega la relación con customers
       });
 
       return {
@@ -427,16 +432,21 @@ export class OrdersService {
     try {
       const order = await this.orderRepository.findOne({
         where: { ord_id, laboratory: { lab_id } },
-        relations: [
-          'laboratory',
-          'customer',
-          'exams',
-          'exams.parameters',
-          'results',
-          'results.exam',
-          'results.param',
-          'attachedFiles', 
-        ],
+        relations: {
+          laboratory: true,
+          customer: true,
+
+          exams: {
+            parameters: true
+          },
+
+          results: {
+            exam: true,
+            param: true
+          },
+
+          attachedFiles: true
+        },
       });
       if (!order) {
         throw new NotFoundException('No existe registro con estos datos');
@@ -464,8 +474,14 @@ export class OrdersService {
     try {
       const order = await this.orderRepository.findOne({
         where: { ord_id: ord_id, ord_status: 'FINALIZADA', laboratory: { lab_id } },
-        relations: ['customer'],
-        select: ['ord_pdf_url', 'ord_id', 'customer'],
+        relations: {
+          customer: true
+        },
+        select: {
+          ord_pdf_url: true,
+          ord_id: true,
+          customer: true
+        },
       });
     
       if (!order) throw new NotFoundException('No encontrada la orden o no está finalizada');

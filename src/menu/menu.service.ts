@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,7 +30,7 @@ export class MenuService {
       const { children, ...dtoWithoutChildren } = createMenuDto as any;     
    
       // obtnenemos solo el valor del dto
-      let menuData: any = { ...dtoWithoutChildren };
+      const menuData: any = { ...dtoWithoutChildren };
 
       // verificamos si la opcion de menu tiene padre
       if (createMenuDto.men_parent) {
@@ -65,7 +65,9 @@ export class MenuService {
     try {
       // se obtiene el listado de menus con la relación padre
       const menus = await this.menuRepository.find({
-        relations: ['men_parent'],
+        relations: {
+          men_parent: true
+        },
       });
       // se regresa la respuesta
       return {
@@ -91,7 +93,7 @@ export class MenuService {
       const { children, ...dtoWithoutChildren } = updateMenuDto as any;
 
       // obtnenemos solo el valor del dto
-      let menuData: any = { ...dtoWithoutChildren };
+      const menuData: any = { ...dtoWithoutChildren };
 
       // verificamos si la opcion de menu tiene padre
       if (updateMenuDto.men_parent) {

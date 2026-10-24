@@ -3,6 +3,7 @@ import { Laboratory } from '../../laboratory/entities/laboratory.entity';
 import { Alliance } from '../../alliance/entities/alliance.entity';
 import { ParamsExam } from '../../params_exams/entities/params_exam.entity';
 import { Order } from '../../orders/entities/order.entity';
+import { decimalTransformer } from '../../common/transformers/decimal.transformer';
 
 @Entity('exams')
 export class Exam {
@@ -17,7 +18,7 @@ export class Exam {
   exa_description: string;
 
 
-  @Column('decimal', { precision: 10, scale: 2 })
+  @Column('decimal', { precision: 10, scale: 2, transformer: decimalTransformer })
   exa_price: number;
 
   @Column('text', { nullable: true })

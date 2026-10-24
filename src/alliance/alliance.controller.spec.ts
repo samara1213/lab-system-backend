@@ -1,52 +1,43 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { AllianceController } from './alliance.controller';
 import { AllianceService } from './alliance.service';
-import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('AllianceController', () => {
   let controller: AllianceController;
-  let service: AllianceService;
-
+  const user = { laboratory: { lab_id: 'lab-a' } } as any;
   const mockAllianceService = {
-    create: jest.fn().mockResolvedValue({ status: 201, message: 'se ha creado correctamente la alianza' }),
-    update: jest.fn().mockResolvedValue({ status: 200, message: 'Alianza actualizada correctamente' }),
-    findAllByLaboratory: jest.fn().mockResolvedValue({ status: 200, data: [] }),
+    create: jest.fn(),
+    update: jest.fn(),
+    findAllByLaboratory: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AllianceController],
-      providers: [
-        { provide: AllianceService, useValue: mockAllianceService },
-        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
-      ],
+      providers: [{ provide: AllianceService, useValue: mockAllianceService }],
     }).compile();
-
     controller = module.get<AllianceController>(AllianceController);
-    service = module.get<AllianceService>(AllianceService);
+    jest.clearAllMocks();
   });
 
   it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  it('debería crear una alianza', async () => {
-    const dto = { ali_nombre: 'A', ali_direccion: 'D', ali_telefono: 'T', ali_nombre_contacto: 'C', ali_laboratory_id: 'uuid' };
-    const result = await controller.create(dto as any);
-    expect(service.create).toHaveBeenCalledWith(dto);
-    expect(result).toEqual({ status: 201, message: 'se ha creado correctamente la alianza' });
+  it('crea, actualiza y lista dentro del laboratorio del usuario', async () => {
+    const dto = { ali_nombre: 'Convenio', ali_laboratory_id: 'lab-a' };
+    await controller.create(user, dto as any);
+    await controller.update(user, 'ali-1', { ali_nombre: 'Nuevo' } as any);
+    await controller.findAllByLaboratory(user, 'lab-a');
+    expect(mockAllianceService.create).toHaveBeenCalledWith('lab-a', dto);
+    expect(mockAllianceService.update).toHaveBeenCalledWith('ali-1', 'lab-a', { ali_nombre: 'Nuevo' });
+    expect(mockAllianceService.findAllByLaboratory).toHaveBeenCalledWith('lab-a');
   });
 
-  it('debería actualizar una alianza', async () => {
-    const dto = { ali_nombre: 'Nuevo' };
-    const result = await controller.update('uuid', dto as any);
-    expect(service.update).toHaveBeenCalledWith('uuid', dto);
-    expect(result).toEqual({ status: 200, message: 'Alianza actualizada correctamente' });
-  });
-
-  it('debería listar alianzas por laboratorio', async () => {
-    const result = await controller.findAllByLaboratory('uuid');
-    expect(service.findAllByLaboratory).toHaveBeenCalledWith('uuid');
-    expect(result).toEqual({ status: 200, data: [] });
+  it('rechaza con 404 un laboratorio ajeno', () => {
+    expect(() => controller.findAllByLaboratory(user, 'lab-b')).toThrow(NotFoundException);
+    expect(() => controller.update(user, 'ali-1', { ali_laboratory_id: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(mockAllianceService.update).not.toHaveBeenCalled();
   });
 });

@@ -153,8 +153,8 @@ describe('OrdersService', () => {
       });
       expect(mockOrderRepo.findOne).toHaveBeenCalledWith({
         where: { ord_id: 'id123', ord_status: 'FINALIZADA', laboratory: { lab_id: 'lab-a' } },
-        relations: ['customer'],
-        select: ['ord_pdf_url', 'ord_id', 'customer'],
+        relations: { customer: true },
+        select: { ord_pdf_url: true, ord_id: true, customer: true },
       });
     });
 

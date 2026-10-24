@@ -1,92 +1,53 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
-import { CreateCustomerDto } from './dto/create-customer.dto';
-import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { FilterCustomerDto } from './dto/filter-customer.dto';
-import { ExceptionService } from '../exceptions/exception/exception.service';
 
 describe('CustomersController', () => {
   let controller: CustomersController;
-  let service: CustomersService;
-
-  const createDto: CreateCustomerDto = {
-    cus_document_type: 'CC',
-    cus_document_number: '123456',
-    cus_first_lastname: 'Perez',
-    cus_second_lastname: 'Gomez',
-    cus_first_name: 'Juan',
-    cus_second_name: 'Carlos',
-    cus_address: 'Calle 1',
-    cus_gender: 'M',
-    cus_birthdate: new Date('1990-01-01'),
-    cus_phone: '1234567',
-    cus_email: 'test@mail.com',
-    laboratory: 'lab-uuid',
-  };
-  const updateDto: UpdateCustomerDto = {
-    cus_first_name: 'Pedro',
-    laboratory: 'lab-uuid',
-  } as any;
-  const filterDto: FilterCustomerDto = {
-    laboratory: 'lab-uuid',
-    cus_document_number: '123456',
-  };
-
-  const customersServiceMock = {
-    create: jest.fn().mockResolvedValue({ status: 201, message: 'El cliente se ha creado correctamente' }),
-    findAllByCompany: jest.fn().mockResolvedValue({ data: [{ cus_document_number: '123456' }] }),
-    findOneCustomer: jest.fn().mockResolvedValue({ status: 200, data: { cus_document_number: '123456' } }),
-    update: jest.fn().mockResolvedValue({ status: 200, message: 'Se actualizó el cliente correctamente' }),
+  const user = { laboratory: { lab_id: 'lab-a' } } as any;
+  const mockCustomersService = {
+    create: jest.fn(),
+    findAllByCompany: jest.fn(),
+    findOneCustomer: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CustomersController],
-      providers: [
-        { provide: CustomersService, useValue: customersServiceMock },
-        { provide: ExceptionService, useValue: { handleDBError: jest.fn() } },
-      ],
+      providers: [{ provide: CustomersService, useValue: mockCustomersService }],
     }).compile();
-
     controller = module.get<CustomersController>(CustomersController);
-    service = module.get<CustomersService>(CustomersService);
+    jest.clearAllMocks();
   });
 
-  it('debe estar definido', () => {
+  it('debería estar definido', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('create', () => {
-    it('debe delegar a CustomersService.create', async () => {
-      const result = await controller.create(createDto);
-      expect(service.create).toHaveBeenCalledWith(createDto);
-      expect(result.status).toBe(201);
-    });
+  it('crea el paciente en el laboratorio del usuario', async () => {
+    const dto = { cus_document_number: '0000000000', laboratory: 'lab-a' };
+    await controller.create(user, dto as any);
+    expect(mockCustomersService.create).toHaveBeenCalledWith('lab-a', dto);
   });
 
-  describe('findAll', () => {
-    it('debe delegar a CustomersService.findAllByCompany', async () => {
-      const result = await controller.findAll('lab-uuid');
-      expect(service.findAllByCompany).toHaveBeenCalledWith('lab-uuid');
-      expect(result.data).toBeDefined();
-    });
+  it('busca un paciente forzando el laboratorio del usuario', async () => {
+    await controller.findOneCustomer(user, { laboratory: 'lab-a', cus_document_number: '0000000000' });
+    expect(mockCustomersService.findOneCustomer).toHaveBeenCalledWith({ laboratory: 'lab-a', cus_document_number: '0000000000' });
   });
 
-  describe('findOneCustomer', () => {
-    it('debe delegar a CustomersService.findOneCustomer', async () => {
-      const result = await controller.findOneCustomer(filterDto);
-      expect(service.findOneCustomer).toHaveBeenCalledWith(filterDto);
-      expect(result.status).toBe(200);
-      expect(result.data.cus_document_number).toBe('123456');
-    });
+  it('lista y actualiza dentro del laboratorio del usuario', async () => {
+    await controller.findAll(user, 'lab-a');
+    await controller.update(user, 'cus-1', { cus_first_name: 'X' } as any);
+    expect(mockCustomersService.findAllByCompany).toHaveBeenCalledWith('lab-a');
+    expect(mockCustomersService.update).toHaveBeenCalledWith('cus-1', 'lab-a', { cus_first_name: 'X' });
   });
 
-  describe('update', () => {
-    it('debe delegar a CustomersService.update', async () => {
-      const result = await controller.update('cus-uuid', updateDto);
-      expect(service.update).toHaveBeenCalledWith('cus-uuid', updateDto);
-      expect(result.status).toBe(200);
-    });
+  it('rechaza con 404 un laboratorio ajeno', () => {
+    expect(() => controller.findAll(user, 'lab-b')).toThrow(NotFoundException);
+    expect(() => controller.findOneCustomer(user, { laboratory: 'lab-b', cus_document_number: '1' })).toThrow(NotFoundException);
+    expect(() => controller.update(user, 'cus-1', { laboratory: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(mockCustomersService.update).not.toHaveBeenCalled();
   });
 });

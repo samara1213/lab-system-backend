@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -166,7 +166,11 @@ export class ExamsService {
       // se busca el registro dentro del laboratorio del usuario
       const exam = await this.examRepository.findOne({
         where: { exa_id: id, laboratory: { lab_id } },
-        relations: ['laboratory', 'alliance', 'parameters'],
+        relations: {
+          laboratory: true,
+          alliance: true,
+          parameters: true
+        },
       });
 
       // validamos que el registro exista
@@ -192,7 +196,10 @@ export class ExamsService {
     try {
       const exams = await this.examRepository.find({
         where: { laboratory: { lab_id: laboratoryId } },
-        relations: ['alliance', 'parameters']
+        relations: {
+          alliance: true,
+          parameters: true
+        }
       });
 
       return {

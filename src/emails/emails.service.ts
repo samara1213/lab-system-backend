@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { templateEmailWelcom } from './templates/templateEmailWelcom';
 import { templateEmailResult } from './templates/templateEmailResult';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
 export class EmailsService {
+
+  private readonly logger = new Logger('EmailsService');
 
   private transporter: nodemailer.Transporter;
 
@@ -51,13 +51,12 @@ export class EmailsService {
     try {
 
       // se realiza el proceso de envio de correo
-      const info = await this.transporter.sendMail(mailOptions);
-
-      console.log('Correo enviado: ', info.response);
+      await this.transporter.sendMail(mailOptions);
 
     } catch (error) {
 
-      console.error('Error enviando correo: ', error);
+      // solo el codigo: el mensaje de SMTP puede traer la direccion del destinatario
+      this.logger.error(`Error enviando correo de bienvenida [${error?.code ?? 'sin código'}]`);
     }
   }
 
@@ -78,11 +77,13 @@ export class EmailsService {
 
     try {
 
-      const info = await this.transporter.sendMail(mailOptions);
-      
+      await this.transporter.sendMail(mailOptions);
+
     } catch (error) {
-      
-      this.exceptionService.handleDBError(error);
+
+      // solo el codigo: el mensaje de SMTP puede traer la direccion del destinatario
+      this.logger.error(`Error enviando correo de resultados [${error?.code ?? 'sin código'}]`);
+      throw new InternalServerErrorException('No fue posible enviar el correo con los resultados, intente más tarde');
     }
   }
 

@@ -30,7 +30,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         // se carga el laboratorio (aislamiento de datos) y los menus del rol (permisos)
         const user = await this.userRepository.findOne({
             where: { use_id },
-            relations: ['laboratory', 'role', 'role.menus'],
+            relations: {
+                laboratory: true,
+
+                role: {
+                    menus: true
+                }
+            },
         });
 
         if (!user) throw new UnauthorizedException('el token sumistrado es invalido')

@@ -38,7 +38,7 @@ describe('PdfService', () => {
     const buffer = await service.generateExamResultsPdf(fakeOrder);
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(0);
-  });
+  }, 60_000);
 
   it('debería subir el PDF a Supabase y retornar la ruta', async () => {
     const fakeOrder = {

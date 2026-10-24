@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -33,7 +33,9 @@ export class RoleService {
       // Asignamos los menús como objetos con solo el id
       if (menus && menus.length > 0) {
 
-        role.menus = menus.map((id) => ({ men_id: id }) as any);
+        role.menus = menus.map((id) => (({
+          men_id: id
+        }) as any));
 
       } else {
 
@@ -64,7 +66,9 @@ export class RoleService {
     try {
       // Obtenemos el listado de roles con las opciones de menú asignadas
       const roles = await this.roleRepository.find({
-        relations: ['menus'],
+        relations: {
+          menus: true
+        },
       });
       // Solo retornamos el id de las opciones de menú asignadas como array de strings
       return {
@@ -132,7 +136,9 @@ export class RoleService {
       // Actualizamos los menús asociados si se envían
       if (menus && menus.length > 0) {
     
-        role.menus = menus.map((menuId) => ({ men_id: menuId }) as any);
+        role.menus = menus.map((menuId) => (({
+          men_id: menuId
+        }) as any));
     
       } else if (menus) {
     
