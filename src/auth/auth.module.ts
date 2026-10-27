@@ -12,6 +12,7 @@ import { EmailsModule } from 'src/emails/emails.module';
 import { RoleModule } from 'src/role/role.module';
 import { LaboratoryModule } from 'src/laboratory/laboratory.module';
 import { PermissionsModule } from 'src/permissions/permissions.module';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PermissionsModule } from 'src/permissions/permissions.module';
     forwardRef(() => RoleModule),
     forwardRef(() => LaboratoryModule),
     PermissionsModule,
+    StorageModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

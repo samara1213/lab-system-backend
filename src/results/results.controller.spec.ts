@@ -29,7 +29,7 @@ describe('ResultsController', () => {
     mockResultsService.create.mockResolvedValue({ status: 201 });
     const result = await controller.create(user, dto as any);
     expect(result).toEqual({ status: 201 });
-    expect(mockResultsService.create).toHaveBeenCalledWith('lab-a', dto);
+    expect(mockResultsService.create).toHaveBeenCalledWith('lab-a', dto, user);
   });
 
   it('lista los resultados de una orden dentro del laboratorio', async () => {
@@ -44,6 +44,7 @@ describe('ResultsController', () => {
       'res-1',
       'lab-a',
       dto,
+      user,
     );
   });
 });

@@ -10,6 +10,7 @@ import {
 import { ResultsService } from './results.service';
 import { CreateResultDto } from './dto/create-result.dto';
 import { UpdateResultDto } from './dto/update-result.dto';
+import { CreateResultsBatchDto } from './dto/create-results-batch.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
@@ -27,6 +28,22 @@ export class ResultsController {
     return this.resultsService.create(
       resolveLaboratoryId(user),
       createResultDto,
+      user,
+    );
+  }
+
+  // todos los resultados de la orden de una vez; el servicio exige "crear" para los
+  // nuevos y "editar" para los que cambian
+  @RequirePermission('results:create', 'results:update')
+  @Post('batch')
+  createBatch(
+    @GetUser() user: User,
+    @Body() createResultsBatchDto: CreateResultsBatchDto,
+  ) {
+    return this.resultsService.createBatch(
+      resolveLaboratoryId(user),
+      createResultsBatchDto,
+      user,
     );
   }
 
@@ -47,6 +64,7 @@ export class ResultsController {
       id,
       resolveLaboratoryId(user),
       updateResultDto,
+      user,
     );
   }
 }

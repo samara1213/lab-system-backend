@@ -59,6 +59,17 @@ export class User {
   @Column('timestamp', { nullable: true })
   use_ultimo_ingreso: Date;
 
+  // firma del profesional (ruta en Storage: <lab_id>/firmas/<uuid>.<ext>); va en el PDF de cada examen que firme
+  @Column('text', { nullable: true })
+  use_firma_path: string;
+
+  // por ejemplo "Bacterióloga"
+  @Column('text', { nullable: true })
+  use_cargo: string;
+
+  @Column('text', { nullable: true })
+  use_registro_profesional: string;
+
   @Column('text', {
     nullable: true,
     default: 'ACTIVO',

@@ -37,9 +37,20 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
   let data: SeedData;
   const tokens: Record<string, string> = {};
   const storage = {
-    uploadFile: jest.fn().mockResolvedValue('ruta/ficticia'),
-    getSignedUrl: jest.fn(),
+    // devuelve la misma ruta que recibe (como Supabase)
+    uploadFile: jest.fn(
+      (
+        _buffer: Buffer,
+        path: string,
+        _contentType?: string,
+        _upsert?: boolean,
+      ) => Promise.resolve(path),
+    ),
+    getSignedUrl: jest.fn((path: string) =>
+      Promise.resolve(`https://storage.ejemplo.test/${path}?firmado`),
+    ),
     getPrivateImageBuffer: jest.fn(),
+    deleteFile: jest.fn(),
   };
   const emails = {
     sendMailWelcome: jest.fn(),
@@ -1043,6 +1054,299 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
           use_contrasena: 'Nueva1234*',
         })
         .expect(201);
+    });
+  });
+
+  describe('Fase 4: perfil y firma', () => {
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(64),
+    ]);
+    const jpg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      Buffer.alloc(64),
+    ]);
+
+    it('cada usuario edita su perfil, pero no su rol ni su correo', async () => {
+      await http
+        .patch('/api/auth/me')
+        .set(as('recep-a'))
+        .send({ use_cargo: 'Bacterióloga', use_registro_profesional: 'RP-123' })
+        .expect(200);
+      const me = await http.get('/api/auth/me').set(as('recep-a')).expect(200);
+      expect(me.body.data).toMatchObject({
+        use_cargo: 'Bacterióloga',
+        use_registro_profesional: 'RP-123',
+        has_signature: false,
+      });
+      await http
+        .patch('/api/auth/me')
+        .set(as('recep-a'))
+        .send({ role: data.roles.admin })
+        .expect(400);
+      await http
+        .patch('/api/auth/me')
+        .set(as('recep-a'))
+        .send({ use_correo: 'otro@ejemplo.test' })
+        .expect(400);
+    });
+
+    it('sube la firma propia (PNG/JPG hasta 1 MB) en <lab>/firmas y reemplaza la anterior', async () => {
+      await http
+        .put('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .attach('file', Buffer.from('<svg onload=alert(1)>'), 'firma.png')
+        .expect(400);
+      await http
+        .put('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .attach('file', Buffer.alloc(1024 * 1024 + 10), 'firma.png')
+        .expect(413);
+      // un PDF no es una firma aunque sea un tipo permitido en adjuntos
+      await http
+        .put('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .attach(
+          'file',
+          Buffer.concat([Buffer.from('%PDF-1.4'), Buffer.alloc(64)]),
+          'firma.png',
+        )
+        .expect(400);
+
+      await http
+        .put('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .attach('file', png, '../../firma.png')
+        .expect(200);
+      const [, first, mime, upsert] = storage.uploadFile.mock.calls.at(-1);
+      expect(first).toMatch(
+        new RegExp(`^${data.A.lab_id}/firmas/[0-9a-f-]{36}\\.png$`),
+      );
+      expect([mime, upsert]).toEqual(['image/png', false]);
+
+      await http
+        .put('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .attach('file', jpg, 'firma.jpg')
+        .expect(200);
+      expect(storage.uploadFile.mock.calls.at(-1)[1]).toMatch(/\.jpg$/);
+      expect(storage.deleteFile).toHaveBeenCalledWith(first);
+
+      const me = await http.get('/api/auth/me').set(as('recep-a'));
+      expect(me.body.data.has_signature).toBe(true);
+      expect(JSON.stringify(me.body)).not.toContain('firmas/');
+      const url = await http
+        .get('/api/auth/me/signature')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(url.body.data.url).toContain('?firmado');
+    });
+
+    it('el administrador carga firmas solo de usuarios de su laboratorio', async () => {
+      await http
+        .put(`/api/auth/${data.users['consulta-a@ejemplo.test']}/signature`)
+        .set(as('labadmin-a'))
+        .attach('file', png, 'f.png')
+        .expect(200);
+      await http
+        .put(`/api/auth/${data.users['recep-b@ejemplo.test']}/signature`)
+        .set(as('labadmin-a'))
+        .attach('file', png, 'f.png')
+        .expect(404);
+      await http
+        .put(`/api/auth/${data.users['consulta-a@ejemplo.test']}/signature`)
+        .set(as('recep-a'))
+        .attach('file', png, 'f.png')
+        .expect(403);
+      const users = await http.get('/api/auth/users').set(as('labadmin-a'));
+      expect(
+        users.body.data.find(
+          (u: any) => u.use_correo === 'consulta-a@ejemplo.test',
+        ).has_signature,
+      ).toBe(true);
+      await http
+        .delete(`/api/auth/${data.users['consulta-a@ejemplo.test']}/signature`)
+        .set(as('labadmin-a'))
+        .expect(200);
+    });
+  });
+
+  describe('Fase 4: resultados en lote y firmante por examen', () => {
+    let ordId: string;
+    const batch = (value: string, extra: object = {}) => ({
+      order: ordId,
+      results: [
+        {
+          exam: data.A.exa_id,
+          param: data.A.par_id,
+          res_value: value,
+          res_observation: 'Muestra hemolizada',
+          ...extra,
+        },
+      ],
+    });
+
+    beforeAll(async () => {
+      // orden nueva y limpia en el laboratorio A
+      await http
+        .post('/api/orders')
+        .set(as('recep-a'))
+        .send({
+          ord_total_value: 1,
+          cus_id: data.A.cus_id,
+          exa_ids: [data.A.exa_id],
+        })
+        .expect(201);
+      const list = await http
+        .post('/api/orders/laboratory')
+        .set(as('recep-a'))
+        .send({ ord_status: 'PENDIENTE' });
+      ordId = list.body.data.find(
+        (o: any) => o.ord_id !== data.A.ord_id,
+      ).ord_id;
+    });
+
+    it('crea, no repite lo que no cambia y actualiza lo que cambia, en una transacción', async () => {
+      const created = await http
+        .post('/api/results/batch')
+        .set(as('recep-a'))
+        .send(batch('12.5'))
+        .expect(201);
+      expect(created.body.data).toEqual({
+        created: 1,
+        updated: 0,
+        unchanged: 0,
+      });
+      expect(created.body.warning).toBeUndefined(); // recep-a ya tiene firma
+
+      const same = await http
+        .post('/api/results/batch')
+        .set(as('recep-a'))
+        .send(batch('12.5'))
+        .expect(201);
+      expect(same.body.data).toEqual({ created: 0, updated: 0, unchanged: 1 });
+
+      const order = await http.get(`/api/orders/${ordId}`).set(as('recep-a'));
+      expect(order.body.data.ord_status).toBe('PENDIENTE PDF');
+    });
+
+    it('cada examen indica quién lo firma (último en modificar), sin exponer la ruta de la firma', async () => {
+      const res = await http
+        .get(`/api/orders/results/${ordId}`)
+        .set(as('recep-a'))
+        .expect(200);
+      const exam = res.body.data.exams[0];
+      expect(exam.signer).toMatchObject({
+        nombre: 'recep-a Prueba',
+        cargo: 'Bacterióloga',
+        registro: 'RP-123',
+        has_signature: true,
+      });
+      expect(exam.signer).not.toHaveProperty('firma_path');
+      expect(exam.parameters[0].result).toBe('12.5');
+    });
+
+    it('quien corrige pasa a ser el firmante; sin firma recibe una advertencia', async () => {
+      // el super administrador corrige el valor (no tiene firma cargada)
+      const fixed = await http
+        .post('/api/results/batch')
+        .set(as('admin-a'))
+        .send(batch('13'))
+        .expect(201);
+      expect(fixed.body.data.updated).toBe(1);
+      expect(fixed.body.warning).toMatch(/firma/);
+      const res = await http
+        .get(`/api/orders/results/${ordId}`)
+        .set(as('recep-a'));
+      expect(res.body.data.exams[0].signer.nombre).toBe('admin-a Prueba');
+    });
+
+    it('valida la orden, los parámetros y los permisos', async () => {
+      await http
+        .post('/api/results/batch')
+        .set(as('recep-b'))
+        .send(batch('1'))
+        .expect(404);
+      await http
+        .post('/api/results/batch')
+        .set(as('recep-a'))
+        .send({
+          order: ordId,
+          results: [
+            { exam: data.B.exa_id, param: data.B.par_id, res_value: '1' },
+          ],
+        })
+        .expect(404);
+      await http
+        .post('/api/results/batch')
+        .set(as('recep-a'))
+        .send({
+          order: ordId,
+          results: [
+            { exam: data.A.exa_id, param: data.A.par_id, res_value: '1' },
+            { exam: data.A.exa_id, param: data.A.par_id, res_value: '2' },
+          ],
+        })
+        .expect(400);
+      await http
+        .post('/api/results/batch')
+        .set(as('consulta-a'))
+        .send(batch('1'))
+        .expect(403);
+      await http
+        .post('/api/results/batch')
+        .set(as('labadmin-a'))
+        .send(batch('1'))
+        .expect(403);
+    });
+
+    it('registrar exige "crear" y corregir exige "editar"', async () => {
+      await http
+        .post('/api/role')
+        .set(as('admin-a'))
+        .send({
+          rol_nombre: 'SOLO REGISTRA',
+          permissions: [
+            {
+              module: 'results',
+              view: true,
+              create: true,
+              update: false,
+              delete: false,
+            },
+          ],
+        })
+        .expect(201);
+      const role = (
+        await http.get('/api/role').set(as('admin-a'))
+      ).body.data.find((r: any) => r.rol_nombre === 'SOLO REGISTRA');
+      // el rol se relee en cada petición: basta reasignarlo (sin otro login, que tiene límite por minuto)
+      const consulta = data.users['consulta-a@ejemplo.test'];
+      await http
+        .patch(`/api/auth/${consulta}`)
+        .set(as('admin-a'))
+        .send({ role: role.rol_id })
+        .expect(200);
+      try {
+        // existe: sería una corrección
+        await http
+          .post('/api/results/batch')
+          .set(as('consulta-a'))
+          .send(batch('99'))
+          .expect(403);
+        // sin cambios no exige nada
+        await http
+          .post('/api/results/batch')
+          .set(as('consulta-a'))
+          .send(batch('13'))
+          .expect(201);
+      } finally {
+        await http
+          .patch(`/api/auth/${consulta}`)
+          .set(as('admin-a'))
+          .send({ role: data.roles.consulta })
+          .expect(200);
+      }
     });
   });
 

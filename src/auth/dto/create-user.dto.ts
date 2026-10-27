@@ -35,6 +35,16 @@ export class CreateUserDto {
   @MaxLength(20)
   use_telefono?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  use_cargo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  use_registro_profesional?: string;
+
   @IsUUID()
   role: string; // id del rol
 

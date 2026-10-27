@@ -9,9 +9,18 @@ import {
   UseGuards,
   Query,
   HttpCode,
+  Put,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { AuthService } from './auth.service';
+import { AuthService, MAX_SIGNATURE_SIZE } from './auth.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
+// la firma llega como multipart (campo "file"); multer corta en 1 MB (413)
+const SIGNATURE_UPLOAD = { limits: { fileSize: MAX_SIGNATURE_SIZE, files: 1 } };
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto';
@@ -71,6 +80,68 @@ export class AuthController {
   @Auth()
   refresToken(@GetUser() user: User) {
     return this.authService.refresToken(user);
+  }
+
+  // "Mi perfil": cada usuario edita sus datos y su firma (rutas antes de las de :id)
+  @Patch('/me')
+  @Auth()
+  updateProfile(
+    @GetUser() user: User,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(user, updateProfileDto);
+  }
+
+  @Put('/me/signature')
+  @Auth()
+  @UseInterceptors(FileInterceptor('file', SIGNATURE_UPLOAD))
+  uploadMySignature(
+    @GetUser() user: User,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.authService.uploadSignature(null, file, user);
+  }
+
+  @Get('/me/signature')
+  @Auth()
+  getMySignature(@GetUser() user: User) {
+    return this.authService.getSignatureUrl(null, user);
+  }
+
+  @Delete('/me/signature')
+  @Auth()
+  deleteMySignature(@GetUser() user: User) {
+    return this.authService.deleteSignature(null, user);
+  }
+
+  // el administrador carga o revisa la firma de un usuario de su laboratorio
+  @Put(':id/signature')
+  @Auth()
+  @RequirePermission('users:update')
+  @UseInterceptors(FileInterceptor('file', SIGNATURE_UPLOAD))
+  uploadSignature(
+    @Param('id', ParseUUIDPipe) id: string,
+    @GetUser() user: User,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.authService.uploadSignature(id, file, user);
+  }
+
+  @Get(':id/signature')
+  @Auth()
+  @RequirePermission('users:view')
+  getSignature(@Param('id', ParseUUIDPipe) id: string, @GetUser() user: User) {
+    return this.authService.getSignatureUrl(id, user);
+  }
+
+  @Delete(':id/signature')
+  @Auth()
+  @RequirePermission('users:update')
+  deleteSignature(
+    @Param('id', ParseUUIDPipe) id: string,
+    @GetUser() user: User,
+  ) {
+    return this.authService.deleteSignature(id, user);
   }
 
   @Get('/users')

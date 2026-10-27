@@ -68,6 +68,10 @@ export class PermissionsService {
       use_primer_ingreso: user.use_primer_ingreso,
       use_estado: user.use_estado,
       use_ultimo_ingreso: user.use_ultimo_ingreso,
+      use_cargo: user.use_cargo,
+      use_registro_profesional: user.use_registro_profesional,
+      // la ruta de la firma no sale del backend: solo si existe
+      has_signature: Boolean(user.use_firma_path),
       laboratory: laboratory ?? null,
       role: role
         ? {

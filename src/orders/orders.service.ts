@@ -7,7 +7,10 @@ import { FilterOrderDto } from './dto/filter-order.dto';
 import { Customer } from '../customers/entities/customer.entity';
 import { Exam } from '../exams/entities/exam.entity';
 import { NOT_FOUND_MESSAGE } from '../auth/helpers/laboratory-access.helper';
-import { buildOrderResultsHierarchy } from './helpers/order-results.helper';
+import {
+  buildOrderResultsHierarchy,
+  withoutSignaturePaths,
+} from './helpers/order-results.helper';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { PdfService } from '../pdf/pdf.service';
 import { EmailsService } from '../emails/emails.service';
@@ -369,7 +372,7 @@ export class OrdersService {
 
       return {
         status: 200,
-        data,
+        data: withoutSignaturePaths(data),
       };
     } catch (error) {
       this.exceptionService.handleDBError(error);
@@ -398,6 +401,8 @@ export class OrdersService {
           results: {
             exam: true,
             param: true,
+            // quien firma cada examen (último que modificó sus resultados)
+            updatedBy: true,
           },
 
           attachedFiles: true,

@@ -25,8 +25,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangeUserStatusDto } from './dto/change-user-status.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { RoleService } from '../role/role.service';
 import { PermissionsService } from '../permissions/permissions.service';
+import { StorageService } from '../storage/storage.service';
+import { detectFileType } from '../storage/file-type.helper';
 import { isSystemUser } from '../permissions/permissions.helper';
 import {
   NOT_FOUND_MESSAGE,
@@ -35,6 +38,9 @@ import {
 
 // vigencia del enlace de recuperacion de contraseña
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+
+// tamaño maximo de la imagen de la firma
+export const MAX_SIGNATURE_SIZE = 1024 * 1024;
 
 // relaciones que necesita la sesion (laboratorio y permisos del rol)
 const SESSION_RELATIONS = {
@@ -55,6 +61,7 @@ export class AuthService {
     private readonly emailService: EmailsService,
     private readonly roleService: RoleService,
     private readonly permissionsService: PermissionsService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -128,6 +135,9 @@ export class AuthService {
         use_documento: true,
         use_telefono: true,
         use_ultimo_ingreso: true,
+        use_cargo: true,
+        use_registro_profesional: true,
+        use_firma_path: true,
       },
       relations: SESSION_RELATIONS,
     });
@@ -354,6 +364,9 @@ export class AuthService {
           use_primer_ingreso: user.use_primer_ingreso,
           use_ultimo_ingreso: user.use_ultimo_ingreso,
           use_fecha_creacion: user.use_fecha_creacion,
+          use_cargo: user.use_cargo,
+          use_registro_profesional: user.use_registro_profesional,
+          has_signature: Boolean(user.use_firma_path),
           role: user.role
             ? {
                 rol_id: user.role.rol_id,
@@ -490,6 +503,146 @@ export class AuthService {
     } catch (error) {
       this.handleExceptions(error);
     }
+  }
+
+  /**
+   * "Mi perfil": el usuario edita sus datos (no correo, rol ni laboratorio)
+   * @param actor usuario autenticado
+   * @param updateProfileDto datos a actualizar
+   */
+  async updateProfile(actor: User, updateProfileDto: UpdateProfileDto) {
+    try {
+      await this.userRepository.update(
+        { use_id: actor.use_id },
+        updateProfileDto,
+      );
+      return {
+        status: 200,
+        message: 'Tus datos se actualizaron correctamente',
+      };
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
+   * Carga o reemplaza la firma de un usuario (PNG o JPEG de máximo 1 MB, validado
+   * por su contenido). Se guarda en <lab_id>/firmas/<uuid>.<ext> y se borra la anterior
+   * @param targetId usuario que recibe la firma (null = el propio usuario)
+   * @param file archivo recibido
+   * @param actor usuario autenticado
+   */
+  async uploadSignature(
+    targetId: string | null,
+    file: Express.Multer.File,
+    actor: User,
+  ) {
+    try {
+      const user = targetId
+        ? await this.findManaged(targetId, actor)
+        : await this.findSelf(actor);
+
+      if (!file?.buffer?.length)
+        throw new BadRequestException('Adjunta la imagen de la firma');
+      if (file.size > MAX_SIGNATURE_SIZE)
+        throw new BadRequestException('La firma debe pesar máximo 1 MB');
+      const type = detectFileType(file.buffer);
+      if (!type || !['png', 'jpg'].includes(type.ext)) {
+        throw new BadRequestException('La firma debe ser una imagen PNG o JPG');
+      }
+
+      const labId = user.laboratory?.lab_id;
+      if (!labId)
+        throw new ForbiddenException(
+          'El usuario no tiene un laboratorio asignado',
+        );
+
+      const path = await this.storageService.uploadFile(
+        file.buffer,
+        `${labId}/firmas/${crypto.randomUUID()}.${type.ext}`,
+        type.mime,
+        false,
+      );
+      if (!path)
+        throw new InternalServerErrorException(
+          'No fue posible guardar la firma',
+        );
+
+      await this.userRepository.update(
+        { use_id: user.use_id },
+        { use_firma_path: path },
+      );
+      if (user.use_firma_path)
+        await this.storageService.deleteFile(user.use_firma_path);
+
+      return {
+        status: 200,
+        message: 'La firma se guardó correctamente',
+      };
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
+   * URL temporal (5 minutos) para ver la firma de un usuario
+   * @param targetId usuario (null = el propio usuario)
+   * @param actor usuario autenticado
+   * @returns { url } o { url: null } si no tiene firma
+   */
+  async getSignatureUrl(targetId: string | null, actor: User) {
+    try {
+      const user = targetId
+        ? await this.findManaged(targetId, actor)
+        : await this.findSelf(actor);
+      const url = user.use_firma_path
+        ? await this.storageService.getSignedUrl(user.use_firma_path, 300)
+        : null;
+      return {
+        status: 200,
+        data: { url },
+      };
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
+   * Quita la firma de un usuario (los exámenes que firme saldrán sin imagen de firma)
+   * @param targetId usuario (null = el propio usuario)
+   * @param actor usuario autenticado
+   */
+  async deleteSignature(targetId: string | null, actor: User) {
+    try {
+      const user = targetId
+        ? await this.findManaged(targetId, actor)
+        : await this.findSelf(actor);
+      if (user.use_firma_path) {
+        await this.userRepository.update(
+          { use_id: user.use_id },
+          { use_firma_path: null },
+        );
+        await this.storageService.deleteFile(user.use_firma_path);
+      }
+      return {
+        status: 200,
+        message: 'La firma se eliminó',
+      };
+    } catch (error) {
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
+   * El propio usuario con su laboratorio y la ruta de su firma
+   */
+  private async findSelf(actor: User) {
+    const user = await this.userRepository.findOne({
+      where: { use_id: actor.use_id },
+      relations: { laboratory: true, role: true },
+    });
+    if (!user) throw new NotFoundException(NOT_FOUND_MESSAGE);
+    return user;
   }
 
   /**
