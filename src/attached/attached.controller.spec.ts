@@ -25,6 +25,10 @@ describe('AttachedController', () => {
     const file = { buffer: Buffer.from('x') } as Express.Multer.File;
     mockAttachedService.create.mockResolvedValue({ status: 201 });
     await controller.uploadAttached(user, 'ord-1', file);
-    expect(mockAttachedService.create).toHaveBeenCalledWith('ord-1', 'lab-a', file);
+    expect(mockAttachedService.create).toHaveBeenCalledWith(
+      'ord-1',
+      'lab-a',
+      file,
+    );
   });
 });

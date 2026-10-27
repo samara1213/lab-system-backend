@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ResultsService } from './results.service';
 import { CreateResultDto } from './dto/create-result.dto';
 import { UpdateResultDto } from './dto/update-result.dto';
@@ -14,7 +22,10 @@ export class ResultsController {
 
   @Post()
   create(@GetUser() user: User, @Body() createResultDto: CreateResultDto) {
-    return this.resultsService.create(resolveLaboratoryId(user), createResultDto);
+    return this.resultsService.create(
+      resolveLaboratoryId(user),
+      createResultDto,
+    );
   }
 
   @Get(':id')
@@ -23,8 +34,15 @@ export class ResultsController {
   }
 
   @Patch(':id')
-  update(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string, @Body() updateResultDto: UpdateResultDto) {
-    return this.resultsService.update(id, resolveLaboratoryId(user), updateResultDto);
+  update(
+    @GetUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateResultDto: UpdateResultDto,
+  ) {
+    return this.resultsService.update(
+      id,
+      resolveLaboratoryId(user),
+      updateResultDto,
+    );
   }
-
 }

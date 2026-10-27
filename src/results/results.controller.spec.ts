@@ -40,6 +40,10 @@ describe('ResultsController', () => {
   it('actualiza un resultado dentro del laboratorio', async () => {
     const dto = { res_value: '20' };
     await controller.update(user, 'res-1', dto as any);
-    expect(mockResultsService.update).toHaveBeenCalledWith('res-1', 'lab-a', dto);
+    expect(mockResultsService.update).toHaveBeenCalledWith(
+      'res-1',
+      'lab-a',
+      dto,
+    );
   });
 });

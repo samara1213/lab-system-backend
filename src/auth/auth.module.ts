@@ -12,29 +12,28 @@ import { RoleModule } from 'src/role/role.module';
 import { LaboratoryModule } from 'src/laboratory/laboratory.module';
 
 @Module({
-  imports: [    
-  TypeOrmModule.forFeature([User]),
-  ConfigModule,
-  EmailsModule,
-  forwardRef(() => RoleModule),
-  forwardRef(() => LaboratoryModule),
-  PassportModule.register({ defaultStrategy: 'jwt'}),
-  JwtModule.registerAsync({
-    imports: [ConfigModule],
-    inject: [ConfigService],
-    useFactory: (configService: ConfigService) => {
-
-      return {
-        secret: configService.get('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '2h'
-        }
-      }
-    }
-  }),
+  imports: [
+    TypeOrmModule.forFeature([User]),
+    ConfigModule,
+    EmailsModule,
+    forwardRef(() => RoleModule),
+    forwardRef(() => LaboratoryModule),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        return {
+          secret: configService.get('JWT_SECRET'),
+          signOptions: {
+            expiresIn: '2h',
+          },
+        };
+      },
+    }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [TypeOrmModule, JwtStrategy, PassportModule, JwtModule]
+  exports: [TypeOrmModule, JwtStrategy, PassportModule, JwtModule],
 })
 export class AuthModule {}

@@ -1,4 +1,12 @@
-import { BadRequestException, HttpException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,11 +25,9 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
-
   private readonly logger = new Logger('AuthService');
 
   constructor(
-
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
@@ -29,8 +35,8 @@ export class AuthService {
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     @InjectRepository(Laboratory)
-    private readonly laboratoryRepository: Repository<Laboratory>
-  ) { }
+    private readonly laboratoryRepository: Repository<Laboratory>,
+  ) {}
 
   /**
    * funcion que se encarga de realizar la vcreacion de un nuevo usuario
@@ -38,31 +44,30 @@ export class AuthService {
    * @returns  respuesta de la creacion
    */
   async create(createUserDto: CreateUserDto) {
-
     try {
-
-      /**preparamos la data a insertar desctruramos el objecto y 
+      /**preparamos la data a insertar desctruramos el objecto y
        * agregamos la contraseña cifrada
        * aTf#t4#U5hHS
-      */
+       */
       // Obtenemos la contraseña
       const password = this.handleGeneratePassword();
 
       // Creamos la referencia al rol usando solo el id recibido
       const role = this.roleRepository.create({
-        rol_id: createUserDto.role
+        rol_id: createUserDto.role,
       });
 
       // se crea la referencia al laboratorio usando solo el id recibido
       const laboratory = this.laboratoryRepository.create({
-        lab_id: createUserDto.laboratory});
+        lab_id: createUserDto.laboratory,
+      });
 
       const user = this.userRepository.create({
         ...createUserDto,
         use_contrasena: bcrypt.hashSync(password, 10),
         role: role,
         laboratory: laboratory,
-      })
+      });
 
       // se guarda el usuario en la base de datos
       await this.userRepository.save(user);
@@ -71,26 +76,23 @@ export class AuthService {
       await this.emailService.sendMailWelcome(
         user.use_correo,
         `${user.use_primer_nombre} ${user.use_primer_apellido}`,
-        password);
+        password,
+      );
 
       // respuesta del rpoceso de creacion
       return {
         status: 201,
-        message: 'El registro de usuario se ha creado correctamente',        
-
-      }
-
+        message: 'El registro de usuario se ha creado correctamente',
+      };
     } catch (error) {
-
-      this.handleExceptions(error)
+      this.handleExceptions(error);
     }
   }
 
-
   /**
-   * 
-   * @param loginUserDto 
-   * @returns 
+   *
+   * @param loginUserDto
+   * @returns
    */
   async login(loginUserDto: LoginUserDto) {
     // se desectrura el correo y contraseña
@@ -100,27 +102,36 @@ export class AuthService {
     //y la contraseña
     const user = await this.userRepository.findOne({
       where: { use_correo },
-      select: { use_correo: true, use_contrasena: true, use_estado: true, use_primer_ingreso: true, use_id: true },
+      select: {
+        use_correo: true,
+        use_contrasena: true,
+        use_estado: true,
+        use_primer_ingreso: true,
+        use_id: true,
+      },
       relations: {
         laboratory: true,
 
         role: {
           menus: {
             children: {
-              children: true
-            }
-          }
-        }
+              children: true,
+            },
+          },
+        },
       },
-    })
+    });
 
     // validamos que el ussuario exista
-    if (!user) throw new UnauthorizedException('El usuario o contraseña incorrecto');
+    if (!user)
+      throw new UnauthorizedException('El usuario o contraseña incorrecto');
 
     // si el usuariuo existe vaidamos la contraseña sea valida
-    if (!bcrypt.compareSync(use_contrasena, user.use_contrasena)) throw new UnauthorizedException('El usuario o contraseña incorrecto');
+    if (!bcrypt.compareSync(use_contrasena, user.use_contrasena))
+      throw new UnauthorizedException('El usuario o contraseña incorrecto');
 
-    if (user.use_estado !== 'ACTIVO') throw new UnauthorizedException('El usuario o contraseña incorrecto');
+    if (user.use_estado !== 'ACTIVO')
+      throw new UnauthorizedException('El usuario o contraseña incorrecto');
 
     // eliminamos la contraseña de la respuesta
     delete user.use_contrasena;
@@ -133,39 +144,43 @@ export class AuthService {
     return {
       data: { ...user },
       token: this.getJwtToken({ use_id: user.use_id }),
-    }
+    };
   }
 
   /**
    * funcion que se encarga de realizar el cambio de contrasela de un ussuario
    * @param changePassword   Datos del ussuario a cambiar contraseña
-   * @returns 
+   * @returns
    */
   async changePassword(changePasswordDto: ChangePasswordDto) {
-
     try {
-  
       // se desestructura el objecto
-      const { use_correo, use_old_contrasena, use_new_contrasena } = changePasswordDto;
+      const { use_correo, use_old_contrasena, use_new_contrasena } =
+        changePasswordDto;
 
       // consutamos el ususario si existe para verificar si la contraseña es valida
       const user = await this.userRepository.findOne({
         where: { use_correo },
-        select: { use_contrasena: true, use_id: true, use_primer_ingreso: true}  
+        select: {
+          use_contrasena: true,
+          use_id: true,
+          use_primer_ingreso: true,
+        },
       });
 
       // validamos si existe el ususario y que la contraseña sea valida
       // (400 y no 401: el interceptor del front trata todo 401 como sesion expirada)
-      if (!user) throw new BadRequestException('El usuario o contraseña incorrecto');
+      if (!user)
+        throw new BadRequestException('El usuario o contraseña incorrecto');
 
-      if (!bcrypt.compareSync(use_old_contrasena, user.use_contrasena)) throw new BadRequestException('El usuario o contraseña incorrecto');
+      if (!bcrypt.compareSync(use_old_contrasena, user.use_contrasena))
+        throw new BadRequestException('El usuario o contraseña incorrecto');
 
       // se prepara el ussuario a modificar
       const updateUser = await this.userRepository.preload({
-        use_id: user.use_id,      
+        use_id: user.use_id,
         use_contrasena: bcrypt.hashSync(use_new_contrasena, 10),
         use_primer_ingreso: false,
-        
       });
 
       // guardamos los datos del ussuario
@@ -173,11 +188,9 @@ export class AuthService {
 
       return {
         status: 200,
-        message: 'La contraseña se ha cambiado correctamente',     
-      }
-
+        message: 'La contraseña se ha cambiado correctamente',
+      };
     } catch (error) {
-
       this.handleExceptions(error);
     }
   }
@@ -185,16 +198,14 @@ export class AuthService {
   /**
    * funcion que se encarga de hacer el refresco de un token
    * @param user Datos del ussuario
-   * @returns 
+   * @returns
    */
   async refresToken(user: User) {
-
     return {
       data: { ...user },
       token: this.getJwtToken({ use_id: user.use_id }),
-    };    
+    };
   }
-
 
   /**
    * Lista todos los usuarios de un laboratorio por su id
@@ -202,48 +213,40 @@ export class AuthService {
    * @returns lista de usuarios
    */
   async findUsersByLaboratory(lab_id: string) {
-
     try {
-      
       // buscamos los ususarios por el id del laboratorio
       const users = await this.userRepository.find({
         where: { laboratory: { lab_id } },
         relations: {
-          role: true
+          role: true,
         },
-        });
-      
+      });
+
       // regresamos la lista de usuarios
       return {
         status: 200,
         data: users ?? [],
       };
-    
     } catch (error) {
-    
       this.handleExceptions(error);
     }
-  
   }
-
 
   /**
    * funcion que se encarga de actualizar un usuario
    * @param id id del usuario a actualizar
    * @param updateUserDto datos a actualizar
-   * @returns 
+   * @returns
    */
   async update(id: string, updateUserDto: UpdateUserDto) {
-    
     try {
-      
       // Si se envía un nuevo rol, creamos la referencia
       let role = undefined;
-    
+
       // validamos si se envio el rol para actualizarlo
       if (updateUserDto.role) {
         role = this.roleRepository.create({
-          rol_id: updateUserDto.role
+          rol_id: updateUserDto.role,
         });
       }
 
@@ -251,7 +254,7 @@ export class AuthService {
       let laboratory = undefined;
       if (updateUserDto.laboratory) {
         laboratory = this.laboratoryRepository.create({
-          lab_id: updateUserDto.laboratory
+          lab_id: updateUserDto.laboratory,
         });
       }
       // Preparamos el objeto a actualizar
@@ -271,7 +274,7 @@ export class AuthService {
 
       // validamos si el ussuario existe
       if (!user) throw new NotFoundException('El usuario no existe');
-      
+
       // Guardamos los cambios en la base de datos
       await this.userRepository.save(user);
 
@@ -280,70 +283,64 @@ export class AuthService {
         status: 200,
         message: 'Usuario actualizado correctamente',
       };
-
     } catch (error) {
       this.handleExceptions(error);
     }
   }
 
-
   /**
-   * funcion que se encarga de regresra el token 
+   * funcion que se encarga de regresra el token
    * @param payload datos para el token
    * @returns  token generado
    */
   private getJwtToken(payload: JwtPayload) {
-
     const token = this.jwtService.sign(payload);
 
     return token;
-
-
   }
 
   /**
    * Funcion que se encarga de generar una contraseña dinamica
    */
   private handleGeneratePassword() {
-
     // Caracteres permitidos en la contraseña
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$!';
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$!';
 
     // Generar una clave aleatoria
     const password = Array.from(crypto.randomBytes(12))
-      .map(byte => chars[byte % chars.length])
+      .map((byte) => chars[byte % chars.length])
       .join('');
-          
-    return password;
 
+    return password;
   }
 
   /**
-   * Metodo que se encarga de validar cualquier  tipo de error 
+   * Metodo que se encarga de validar cualquier  tipo de error
    * @param error generado
-  */
+   */
   private handleExceptions(error: any) {
-
     // las excepciones HTTP ya construidas (401, 404...) se propagan sin cambios
     if (error instanceof HttpException) throw error;
 
     // se registra sin parametros de la consulta (pueden traer correos o hashes)
     this.logger.error(describeError(error), error?.stack);
-    if (23505 === +error.code) throw new BadRequestException('El correo ingresado ya existe');
+    if (23505 === +error.code)
+      throw new BadRequestException('El correo ingresado ya existe');
 
     // error no encontrado
-    throw new InternalServerErrorException('Error del sistema')
+    throw new InternalServerErrorException('Error del sistema');
   }
 
   // Utilidad para construir el árbol de menús jerárquico
   private buildMenuTree(menus: any[]): any[] {
     const menuMap = new Map();
-    menus.forEach(menu => {
+    menus.forEach((menu) => {
       menu.children = menu.children || [];
       menuMap.set(menu.men_id, menu);
     });
     const tree = [];
-    menus.forEach(menu => {
+    menus.forEach((menu) => {
       if (menu.men_parent && menuMap.has(menu.men_parent.men_id)) {
         menuMap.get(menu.men_parent.men_id).children.push(menu);
       } else if (menu.men_level === 1) {
@@ -352,5 +349,4 @@ export class AuthService {
     });
     return tree;
   }
-
 }

@@ -10,13 +10,14 @@ import { ParamsExam } from '../params_exams/entities/params_exam.entity';
 import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Exam]),
-            AuthModule,
-            LaboratoryModule,
-            AllianceModule,
-            ParamsExam,
-            ExceptionModule
-           ],
+  imports: [
+    TypeOrmModule.forFeature([Exam]),
+    AuthModule,
+    LaboratoryModule,
+    AllianceModule,
+    ParamsExam,
+    ExceptionModule,
+  ],
   controllers: [ExamsController],
   providers: [ExamsService],
   exports: [TypeOrmModule],

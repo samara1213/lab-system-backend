@@ -1,92 +1,92 @@
 import { Exam } from '../../exams/entities/exam.entity';
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('exams_parameters')
 export class ParamsExam {
+  @PrimaryGeneratedColumn('uuid')
+  par_id: string;
 
-    @PrimaryGeneratedColumn('uuid')
-    par_id: string;
+  @Column('text', {
+    nullable: false,
+  })
+  par_name: string;
 
-    @Column('text', {
-        nullable: false
-    })
-    par_name: string;
+  @Column('text', {
+    nullable: false,
+  })
+  par_default_value: string;
 
-    @Column('text', {
-        nullable: false
-    })
-    par_default_value: string;
+  @Column('bool', {
+    default: false,
+  })
+  par_range: boolean;
 
-    @Column('bool', {
-        default: false
-    })
-    par_range: boolean;
+  @Column('text', {
+    nullable: true,
+  })
+  par_unit_extent: string;
 
-    @Column('text', {
-        nullable: true
-    })
-    par_unit_extent: string;
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_min_man: number;
 
-    @Column('decimal', {
-        nullable: true
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_max_man: number;
 
-    })
-    par_min_man: number;
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_min_woman: number;
 
-    @Column('decimal', {
-        nullable: true
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_max_woman: number;
 
-    })
-    par_max_man: number;
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_min_child: number;
 
-    @Column('decimal', {
-        nullable: true
+  @Column('decimal', {
+    nullable: true,
+  })
+  par_max_child: number;
 
-    })
-    par_min_woman: number;
+  @Column('text', { nullable: true })
+  par_reference_value: string;
 
-    @Column('decimal', {
-        nullable: true
+  @CreateDateColumn({
+    type: 'timestamp',
+  })
+  par_creation_date: Date;
 
-    })
-    par_max_woman: number;
+  @UpdateDateColumn({
+    type: 'timestamp',
+  })
+  par_modification_date: Date;
 
-    @Column('decimal', {
-        nullable: true
+  @Column('text', {
+    default: 'ACTIVO',
+  })
+  par_state: string;
 
-    })
-    par_min_child: number;
+  @Column('int', {
+    default: 0,
+    nullable: false,
+  })
+  par_order: number;
 
-    @Column('decimal', {
-        nullable: true
-
-    })
-    par_max_child: number;
-
-    @Column('text', { nullable: true })
-    par_reference_value: string;
-
-    @CreateDateColumn({
-        type: 'timestamp'
-    })
-    par_creation_date: Date;
-    
-    @UpdateDateColumn({
-        type: 'timestamp'
-    })
-    par_modification_date: Date;
-
-    @Column('text', {   
-        default: 'ACTIVO'        
-    })
-    par_state: string;
-
-    @Column('int', {
-        default: 0,
-        nullable: false,
-    })
-    par_order: number;
-
-    @ManyToOne(() => Exam, { nullable: false })
-    exam: Exam;
+  @ManyToOne(() => Exam, { nullable: false })
+  exam: Exam;
 }

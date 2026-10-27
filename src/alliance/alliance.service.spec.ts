@@ -19,7 +19,11 @@ const mockLabRepo = {
   findOne: jest.fn(),
 };
 // el servicio real de excepciones propaga las HttpException
-const mockExceptionService = { handleDBError: jest.fn((error) => { throw error; }) };
+const mockExceptionService = {
+  handleDBError: jest.fn((error) => {
+    throw error;
+  }),
+};
 
 describe('AllianceService', () => {
   let service: AllianceService;
@@ -45,14 +49,23 @@ describe('AllianceService', () => {
   });
 
   it('debería crear una alianza en el laboratorio del usuario', async () => {
-    const dto = { ali_nombre: 'A', ali_direccion: 'D', ali_telefono: 'T', ali_nombre_contacto: 'C', ali_laboratory_id: 'uuid' };
+    const dto = {
+      ali_nombre: 'A',
+      ali_direccion: 'D',
+      ali_telefono: 'T',
+      ali_nombre_contacto: 'C',
+      ali_laboratory_id: 'uuid',
+    };
     const lab = { lab_id: 'uuid' };
     mockLabRepo.create.mockReturnValue(lab);
     mockAllianceRepo.create.mockReturnValue({ ...dto, laboratory: lab });
     mockAllianceRepo.save.mockResolvedValue({ ...dto, laboratory: lab });
     const result = await service.create('uuid', dto as any);
     expect(mockLabRepo.create).toHaveBeenCalledWith({ lab_id: 'uuid' });
-    expect(mockAllianceRepo.create).toHaveBeenCalledWith({ ...dto, laboratory: lab });
+    expect(mockAllianceRepo.create).toHaveBeenCalledWith({
+      ...dto,
+      laboratory: lab,
+    });
     expect(mockAllianceRepo.save).toHaveBeenCalled();
     expect(result.status).toBe(201);
   });
@@ -65,21 +78,28 @@ describe('AllianceService', () => {
     mockAllianceRepo.preload.mockResolvedValue(alliance);
     mockAllianceRepo.save.mockResolvedValue(alliance);
     const result = await service.update(id, 'lab-uuid', dto as any);
-    expect(mockAllianceRepo.preload).toHaveBeenCalledWith({ ali_id: id, ...dto });
+    expect(mockAllianceRepo.preload).toHaveBeenCalledWith({
+      ali_id: id,
+      ...dto,
+    });
     expect(mockAllianceRepo.save).toHaveBeenCalledWith(alliance);
     expect(result.status).toBe(200);
   });
 
   it('no debería actualizar una alianza de otro laboratorio', async () => {
     mockAllianceRepo.exists.mockResolvedValue(false);
-    await expect(service.update('uuid', 'lab-uuid', { ali_nombre: 'X' } as any)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.update('uuid', 'lab-uuid', { ali_nombre: 'X' } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(mockAllianceRepo.save).not.toHaveBeenCalled();
   });
 
   it('debería listar alianzas por laboratorio', async () => {
     mockAllianceRepo.find.mockResolvedValue([{ ali_id: '1' }, { ali_id: '2' }]);
     const result = await service.findAllByLaboratory('uuid');
-    expect(mockAllianceRepo.find).toHaveBeenCalledWith({ where: { laboratory: { lab_id: 'uuid' } } });
+    expect(mockAllianceRepo.find).toHaveBeenCalledWith({
+      where: { laboratory: { lab_id: 'uuid' } },
+    });
     expect(result.status).toBe(200);
     expect(result.data.length).toBe(2);
   });

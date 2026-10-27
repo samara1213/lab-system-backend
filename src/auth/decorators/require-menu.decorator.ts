@@ -8,6 +8,5 @@ export const META_MENUS = 'menus';
  * @param urls urls de las opciones de menu que dan acceso
  */
 export const RequireMenu = (...urls: string[]) => {
-
-    return SetMetadata(META_MENUS, urls);
-}
+  return SetMetadata(META_MENUS, urls);
+};

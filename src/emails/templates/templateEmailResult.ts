@@ -1,6 +1,5 @@
 export const templateEmailResult = (urlResult: string, name: string) => {
-
-    return `
+  return `
     <!DOCTYPE html>
     <html lang="es">
     <head>
@@ -87,4 +86,4 @@ export const templateEmailResult = (urlResult: string, name: string) => {
     </body>
     </html>
     `;
-}
+};

@@ -6,7 +6,6 @@ import { DataSourceOptions } from 'typeorm';
  * migraciones (data-source.ts), para que ambos usen exactamente la misma base
  */
 export function buildDataSourceOptions(): DataSourceOptions {
-
   return {
     type: 'postgres',
     host: process.env.DB_HOST,

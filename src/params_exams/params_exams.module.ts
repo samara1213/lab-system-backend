@@ -8,10 +8,12 @@ import { ExamsModule } from '../exams/exams.module';
 import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ParamsExam]),
-            AuthModule,
-            ExamsModule,
-            ExceptionModule],
+  imports: [
+    TypeOrmModule.forFeature([ParamsExam]),
+    AuthModule,
+    ExamsModule,
+    ExceptionModule,
+  ],
   controllers: [ParamsExamsController],
   providers: [ParamsExamsService],
   exports: [TypeOrmModule],

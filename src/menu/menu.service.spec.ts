@@ -32,7 +32,12 @@ describe('MenuService', () => {
   });
 
   it('debería crear un menú', async () => {
-    const dto = { men_name: 'Inicio', men_url: '/inicio', men_icon: 'home', men_level: 1 };
+    const dto = {
+      men_name: 'Inicio',
+      men_url: '/inicio',
+      men_icon: 'home',
+      men_level: 1,
+    };
     const menu = { ...dto };
     mockMenuRepo.create.mockReturnValue(menu);
     mockMenuRepo.save.mockResolvedValue(menu);
@@ -58,7 +63,10 @@ describe('MenuService', () => {
     mockMenuRepo.save.mockResolvedValueOnce(menu);
     const result = await service.update('1', { men_name: 'Nuevo' } as any);
     expect(result.status).toBe(200);
-    expect(mockMenuRepo.preload).toHaveBeenCalledWith({ men_id: '1', men_name: 'Nuevo' });
+    expect(mockMenuRepo.preload).toHaveBeenCalledWith({
+      men_id: '1',
+      men_name: 'Nuevo',
+    });
     expect(mockMenuRepo.save).toHaveBeenCalled();
   });
 

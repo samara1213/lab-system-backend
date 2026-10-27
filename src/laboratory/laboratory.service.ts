@@ -16,7 +16,6 @@ export class LaboratoryService {
     private readonly exceptionService: ExceptionService,
   ) {}
 
-
   /**
    * Funcion que se encarga de realizar la creacion de laboratorios en la base de datos
    * @param createLaboratoryDto Objeto con los datos del laboratorio a crear
@@ -24,7 +23,7 @@ export class LaboratoryService {
    */
   async create(createLaboratoryDto: CreateLaboratoryDto) {
     try {
-      // creamos la refrencia al laboratorio que se va a guardar con los registros enviados 
+      // creamos la refrencia al laboratorio que se va a guardar con los registros enviados
       const laboratory = this.laboratoryRepository.create(createLaboratoryDto);
 
       // se inserta el registro en la base de datos
@@ -32,26 +31,21 @@ export class LaboratoryService {
 
       // se regresa la respuesta
       return {
-        'status': 201,
-        'message': 'El registro de laboratorio se ha creado correctamente',
+        status: 201,
+        message: 'El registro de laboratorio se ha creado correctamente',
       };
-
     } catch (error) {
-
       this.exceptionService.handleDBError(error);
     }
   }
-
 
   /**
    * Funcion que se encarga de obtener el listado de laboratorios
    * registrados
    * @returns listado de laboratorios
    */
-   async findAll() {
-    
+  async findAll() {
     try {
-
       // se obtiene el listado de laboratorios
       const laboratories = await this.laboratoryRepository.find();
 
@@ -59,13 +53,9 @@ export class LaboratoryService {
         status: 200,
         data: laboratories ?? [],
       };
-      
     } catch (error) {
-      
       this.exceptionService.handleDBError(error);
-      
     }
-    
   }
 
   /**
@@ -74,31 +64,26 @@ export class LaboratoryService {
    * @returns laboratorio encontrado
    */
   async findOne(id: string) {
-
     try {
+      const laboratory = await this.laboratoryRepository.findOneBy({
+        lab_id: id,
+      });
 
-      const laboratory = await this.laboratoryRepository.findOneBy({ lab_id: id });
-      
       // si no se encuentra el laboratorio se lanza una excepcion
       if (!laboratory) {
-      
         // se lanza una excepcion de no encontrado
         throw new NotFoundException('Laboratory not found');
-      
       }
-      
+
       // se regresa el laboratorio encontrado
       return {
         status: 200,
         data: laboratory,
       };
-
     } catch (error) {
-
       this.exceptionService.handleDBError(error);
     }
   }
-
 
   /**
    * Funcion que se encarga de actualizar un laboratorio
@@ -107,12 +92,10 @@ export class LaboratoryService {
    * @returns mensaje de exito
    */
   async update(id: string, updateLaboratoryDto: UpdateLaboratoryDto) {
-    
     try {
-
       // se busca el laboratorio por su id
       const laboratory = await this.laboratoryRepository.preload({
-        lab_id: id, 
+        lab_id: id,
         ...updateLaboratoryDto,
       });
 
@@ -123,12 +106,9 @@ export class LaboratoryService {
         status: 200,
         message: 'El registro de laboratorio se ha actualizado correctamente',
       };
-           
     } catch (error) {
-      
       this.exceptionService.handleDBError(error);
     }
-
   }
 
   /**
@@ -137,9 +117,7 @@ export class LaboratoryService {
    * @returns mensaje de exito
    */
   async inactive(id: string) {
-
     try {
-
       // se busca el laboratorio por su id y se cambia su estado a inactivo
       const laboratory = await this.laboratoryRepository.preload({
         lab_id: id,
@@ -153,15 +131,9 @@ export class LaboratoryService {
       return {
         status: 200,
         message: 'El laboratorio se ha inactivado correctamente',
-
-      }
-      
+      };
     } catch (error) {
-      
       this.exceptionService.handleDBError(error);
-      
     }
   }
-
-
 }

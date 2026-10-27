@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Attached } from './entities/attached.entity';
 import { Repository } from 'typeorm';
@@ -11,14 +15,13 @@ import { detectFileType } from '../storage/file-type.helper';
 
 @Injectable()
 export class AttachedService {
-
-    // creamos el constructor del servicio de orders
-    constructor(
-      @InjectRepository(Attached) // Assuming Order is the entity for orders
-      private readonly attachedRepository: Repository<Attached>,    
-      private readonly pdfService: PdfService,
-       private readonly exceptionService: ExceptionService,
-    ) {}
+  // creamos el constructor del servicio de orders
+  constructor(
+    @InjectRepository(Attached) // Assuming Order is the entity for orders
+    private readonly attachedRepository: Repository<Attached>,
+    private readonly pdfService: PdfService,
+    private readonly exceptionService: ExceptionService,
+  ) {}
   /**
    * Recibe el id de la orden y el archivo adjunto
    * @param orderId id de la orden
@@ -26,9 +29,7 @@ export class AttachedService {
    * @param file archivo adjunto
    */
   async create(orderId: string, lab_id: string, file: Express.Multer.File) {
-
     try {
-
       // la orden debe pertenecer al laboratorio del usuario
       const orderExists = await this.attachedRepository.manager.exists(Order, {
         where: { ord_id: orderId, laboratory: { lab_id } },
@@ -36,15 +37,25 @@ export class AttachedService {
       if (!orderExists) throw new NotFoundException(NOT_FOUND_MESSAGE);
 
       // validamos el tipo real del archivo por su contenido
-      if (!file?.buffer) throw new BadRequestException('Debe adjuntar un archivo');
+      if (!file?.buffer)
+        throw new BadRequestException('Debe adjuntar un archivo');
       const fileType = detectFileType(file.buffer);
-      if (!fileType) throw new BadRequestException('Tipo de archivo no permitido. Solo PDF o imágenes (PNG, JPG, GIF, WEBP, BMP)');
+      if (!fileType)
+        throw new BadRequestException(
+          'Tipo de archivo no permitido. Solo PDF o imágenes (PNG, JPG, GIF, WEBP, BMP)',
+        );
 
       // cargar el archivo al storage y obtener la url
-      const urlFile = await this.pdfService.uploadFileBuffer(file.buffer, lab_id, fileType);
+      const urlFile = await this.pdfService.uploadFileBuffer(
+        file.buffer,
+        lab_id,
+        fileType,
+      );
 
       // Buscar si ya existe un registro para la orden
-      let attached = await this.attachedRepository.findOne({ where: { order: { ord_id: orderId } } });
+      let attached = await this.attachedRepository.findOne({
+        where: { order: { ord_id: orderId } },
+      });
 
       if (attached) {
         // Actualizar el registro existente
@@ -69,5 +80,5 @@ export class AttachedService {
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }
-  }  
+  }
 }

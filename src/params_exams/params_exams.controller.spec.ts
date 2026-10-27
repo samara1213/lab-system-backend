@@ -14,7 +14,9 @@ describe('ParamsExamsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ParamsExamsController],
-      providers: [{ provide: ParamsExamsService, useValue: mockParamsExamsService }],
+      providers: [
+        { provide: ParamsExamsService, useValue: mockParamsExamsService },
+      ],
     }).compile();
     controller = module.get<ParamsExamsController>(ParamsExamsController);
     jest.clearAllMocks();
@@ -30,7 +32,14 @@ describe('ParamsExamsController', () => {
     await controller.update(user, 'par-1', { par_name: 'X' } as any);
     await controller.findByExamId(user, 'exa-1');
     expect(mockParamsExamsService.create).toHaveBeenCalledWith('lab-a', dto);
-    expect(mockParamsExamsService.update).toHaveBeenCalledWith('par-1', 'lab-a', { par_name: 'X' });
-    expect(mockParamsExamsService.findByExamId).toHaveBeenCalledWith('exa-1', 'lab-a');
+    expect(mockParamsExamsService.update).toHaveBeenCalledWith(
+      'par-1',
+      'lab-a',
+      { par_name: 'X' },
+    );
+    expect(mockParamsExamsService.findByExamId).toHaveBeenCalledWith(
+      'exa-1',
+      'lab-a',
+    );
   });
 });

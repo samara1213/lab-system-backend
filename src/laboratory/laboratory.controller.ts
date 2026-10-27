@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { LaboratoryService } from './laboratory.service';
 import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
@@ -33,9 +41,10 @@ export class LaboratoryController {
 
   @Patch(':id')
   @RequireMenu('/laboratories')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateLaboratoryDto: UpdateLaboratoryDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateLaboratoryDto: UpdateLaboratoryDto,
+  ) {
     return this.laboratoryService.update(id, updateLaboratoryDto);
   }
-
-
 }

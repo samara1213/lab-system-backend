@@ -9,8 +9,12 @@ import { Attached } from './entities/attached.entity';
 
 @Module({
   controllers: [AttachedController],
-  imports: [TypeOrmModule.forFeature([Attached]),
-  AuthModule, PdfModule, ExceptionModule],
+  imports: [
+    TypeOrmModule.forFeature([Attached]),
+    AuthModule,
+    PdfModule,
+    ExceptionModule,
+  ],
   providers: [AttachedService],
   exports: [TypeOrmModule], // Exporting TypeOrmModule and OrdersService for use in other modules
 })

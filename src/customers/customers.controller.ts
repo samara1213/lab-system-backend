@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -14,17 +22,28 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  create(@GetUser() user: User, @Body() createCustomerDto: CreateCustomerDto  ) {
-    return this.customersService.create(resolveLaboratoryId(user, createCustomerDto.laboratory), createCustomerDto);
+  create(@GetUser() user: User, @Body() createCustomerDto: CreateCustomerDto) {
+    return this.customersService.create(
+      resolveLaboratoryId(user, createCustomerDto.laboratory),
+      createCustomerDto,
+    );
   }
 
   @Get('/companies/:id')
-  findAll(@GetUser() user: User, @Param('id', ParseUUIDPipe) idCompany: string) {
-    return this.customersService.findAllByCompany(resolveLaboratoryId(user, idCompany));
+  findAll(
+    @GetUser() user: User,
+    @Param('id', ParseUUIDPipe) idCompany: string,
+  ) {
+    return this.customersService.findAllByCompany(
+      resolveLaboratoryId(user, idCompany),
+    );
   }
 
   @Post('/searches')
-  findOneCustomer(@GetUser() user: User, @Body() filterCustomerDto: FilterCustomerDto) {
+  findOneCustomer(
+    @GetUser() user: User,
+    @Body() filterCustomerDto: FilterCustomerDto,
+  ) {
     return this.customersService.findOneCustomer({
       ...filterCustomerDto,
       laboratory: resolveLaboratoryId(user, filterCustomerDto.laboratory),
@@ -32,9 +51,15 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  update(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string, @Body() updateCustomerDto: UpdateCustomerDto) {
-    return this.customersService.update(id, resolveLaboratoryId(user, updateCustomerDto.laboratory), updateCustomerDto);
+  update(
+    @GetUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateCustomerDto: UpdateCustomerDto,
+  ) {
+    return this.customersService.update(
+      id,
+      resolveLaboratoryId(user, updateCustomerDto.laboratory),
+      updateCustomerDto,
+    );
   }
-
-
 }

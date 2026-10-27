@@ -11,11 +11,11 @@ export class MenuService {
   private readonly logger = new Logger(MenuService.name);
 
   // Constructor que inyecta el repositorio de Menu
-  constructor( 
-   @InjectRepository(Menu)
+  constructor(
+    @InjectRepository(Menu)
     private readonly menuRepository: Repository<Menu>,
     private readonly exceptionService: ExceptionService,
-  ){}
+  ) {}
 
   /**
    * Método para crear una nueva opción de menú
@@ -23,18 +23,15 @@ export class MenuService {
    * @returns Respuesta del proceso de creación
    */
   async create(createMenuDto: CreateMenuDto) {
-
     try {
-
       // Excluimos explícitamente 'children' si viene en el DTO (por seguridad)
-      const { children, ...dtoWithoutChildren } = createMenuDto as any;     
-   
+      const { children, ...dtoWithoutChildren } = createMenuDto as any;
+
       // obtnenemos solo el valor del dto
       const menuData: any = { ...dtoWithoutChildren };
 
       // verificamos si la opcion de menu tiene padre
       if (createMenuDto.men_parent) {
-
         // generamos como un tipo de referencia al padre
         menuData.men_parent = { men_id: createMenuDto.men_parent };
       }
@@ -50,12 +47,10 @@ export class MenuService {
         status: 201,
         message: 'la opcion de menú se ha creado correctamente',
       };
-
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }
   }
-
 
   /**
    * Método para obtener todas las opciones de menú
@@ -66,12 +61,12 @@ export class MenuService {
       // se obtiene el listado de menus con la relación padre
       const menus = await this.menuRepository.find({
         relations: {
-          men_parent: true
+          men_parent: true,
         },
       });
       // se regresa la respuesta
       return {
-        status: 200, 
+        status: 200,
         data: menus ?? [],
       };
     } catch (error) {
@@ -86,9 +81,7 @@ export class MenuService {
    * @returns Respuesta del proceso de actualización
    */
   async update(id: string, updateMenuDto: UpdateMenuDto) {
-
     try {
-
       // Excluimos explícitamente 'children' si viene en el DTO (por seguridad)
       const { children, ...dtoWithoutChildren } = updateMenuDto as any;
 
@@ -97,7 +90,6 @@ export class MenuService {
 
       // verificamos si la opcion de menu tiene padre
       if (updateMenuDto.men_parent) {
-
         // generamos como un tipo de referencia al padre
         menuData.men_parent = { men_id: updateMenuDto.men_parent };
       }
@@ -106,7 +98,7 @@ export class MenuService {
         men_id: id,
         ...menuData,
       });
-      
+
       // Si no se encuentra el menú, lanzamos una excepción
       await this.menuRepository.save(menu);
 
@@ -114,11 +106,8 @@ export class MenuService {
         status: 200,
         message: 'La opción de menú se ha actualizado correctamente',
       };
-
     } catch (error) {
-
       this.exceptionService.handleDBError(error);
-
     }
   }
 
@@ -127,19 +116,17 @@ export class MenuService {
    * @param id - ID de la opción de menú a buscar
    * @returns Opción de menú encontrada
    */
-async getMenuParentByLevel(level: number) {
-
+  async getMenuParentByLevel(level: number) {
     try {
       // Buscar todos los menús con el nivel especificado
       const menus = await this.menuRepository.find({
-        where: { men_level: level }
+        where: { men_level: level },
       });
 
       return {
         status: 200,
         data: menus ?? [],
       };
-
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }

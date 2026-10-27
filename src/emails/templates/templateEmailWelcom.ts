@@ -1,6 +1,9 @@
-export const templateEmailWelcom = (nombre: string, email: string, password: string) => {
-
-    return `
+export const templateEmailWelcom = (
+  nombre: string,
+  email: string,
+  password: string,
+) => {
+  return `
     <!DOCTYPE html>
     <html lang="es">
     <head>
@@ -67,4 +70,4 @@ export const templateEmailWelcom = (nombre: string, email: string, password: str
     </body>
     </html>
     `;
-}
+};

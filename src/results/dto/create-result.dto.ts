@@ -1,7 +1,6 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateResultDto {
-    
   @IsString()
   @IsNotEmpty()
   res_value: string;

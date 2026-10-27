@@ -31,13 +31,21 @@ describe('AllianceController', () => {
     await controller.update(user, 'ali-1', { ali_nombre: 'Nuevo' } as any);
     await controller.findAllByLaboratory(user, 'lab-a');
     expect(mockAllianceService.create).toHaveBeenCalledWith('lab-a', dto);
-    expect(mockAllianceService.update).toHaveBeenCalledWith('ali-1', 'lab-a', { ali_nombre: 'Nuevo' });
-    expect(mockAllianceService.findAllByLaboratory).toHaveBeenCalledWith('lab-a');
+    expect(mockAllianceService.update).toHaveBeenCalledWith('ali-1', 'lab-a', {
+      ali_nombre: 'Nuevo',
+    });
+    expect(mockAllianceService.findAllByLaboratory).toHaveBeenCalledWith(
+      'lab-a',
+    );
   });
 
   it('rechaza con 404 un laboratorio ajeno', () => {
-    expect(() => controller.findAllByLaboratory(user, 'lab-b')).toThrow(NotFoundException);
-    expect(() => controller.update(user, 'ali-1', { ali_laboratory_id: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(() => controller.findAllByLaboratory(user, 'lab-b')).toThrow(
+      NotFoundException,
+    );
+    expect(() =>
+      controller.update(user, 'ali-1', { ali_laboratory_id: 'lab-b' } as any),
+    ).toThrow(NotFoundException);
     expect(mockAllianceService.update).not.toHaveBeenCalled();
   });
 });

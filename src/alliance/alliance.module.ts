@@ -8,10 +8,12 @@ import { ExceptionModule } from '../exceptions/exception/exception.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Alliance]),
-            LaboratoryModule,
-            ExceptionModule,
-            AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Alliance]),
+    LaboratoryModule,
+    ExceptionModule,
+    AuthModule,
+  ],
   controllers: [AllianceController],
   providers: [AllianceService],
   exports: [TypeOrmModule],

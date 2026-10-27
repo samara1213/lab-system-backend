@@ -25,7 +25,11 @@ const mockAllianceRepo = {
   exists: jest.fn(),
 };
 // el servicio real de excepciones propaga las HttpException
-const mockExceptionService = { handleDBError: jest.fn((error) => { throw error; }) };
+const mockExceptionService = {
+  handleDBError: jest.fn((error) => {
+    throw error;
+  }),
+};
 
 describe('ExamsService', () => {
   let service: ExamsService;
@@ -52,7 +56,12 @@ describe('ExamsService', () => {
   });
 
   it('debería crear un examen en el laboratorio del usuario', async () => {
-    const dto = { exa_name: 'Examen', exa_description: 'desc', exa_price: 10, laboratory: 'lab-id' };
+    const dto = {
+      exa_name: 'Examen',
+      exa_description: 'desc',
+      exa_price: 10,
+      laboratory: 'lab-id',
+    };
     const lab = { lab_id: 'lab-id' };
     const exam = { ...dto, laboratory: lab };
     mockLabRepo.create.mockReturnValue(lab);
@@ -67,7 +76,9 @@ describe('ExamsService', () => {
   it('no debería crear un examen con un convenio de otro laboratorio', async () => {
     mockAllianceRepo.exists.mockResolvedValue(false);
     const dto = { exa_name: 'Examen', exa_price: 10, alliance: 'ali-otro-lab' };
-    await expect(service.create('lab-id', dto as any)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.create('lab-id', dto as any)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
     expect(mockExamRepo.save).not.toHaveBeenCalled();
   });
 
@@ -79,14 +90,20 @@ describe('ExamsService', () => {
     mockExamRepo.save.mockResolvedValue(exam);
     const result = await service.update('exa-id', 'lab-id', dto as any);
     // el laboratorio enviado no se aplica en la actualización
-    expect(mockExamRepo.preload).toHaveBeenCalledWith({ exa_id: 'exa-id', exa_name: 'Nuevo', alliance: null });
+    expect(mockExamRepo.preload).toHaveBeenCalledWith({
+      exa_id: 'exa-id',
+      exa_name: 'Nuevo',
+      alliance: null,
+    });
     expect(result.status).toBe(200);
     expect(result.message).toContain('actualizado');
   });
 
   it('no debería actualizar un examen de otro laboratorio', async () => {
     mockExamRepo.exists.mockResolvedValue(false);
-    await expect(service.update('exa-id', 'lab-id', { exa_name: 'X' } as any)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.update('exa-id', 'lab-id', { exa_name: 'X' } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(mockExamRepo.save).not.toHaveBeenCalled();
   });
 
@@ -94,9 +111,11 @@ describe('ExamsService', () => {
     const exam = { exa_id: 'exa-id' };
     mockExamRepo.findOne.mockResolvedValue(exam);
     const result = await service.findOne('exa-id', 'lab-id');
-    expect(mockExamRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({
-      where: { exa_id: 'exa-id', laboratory: { lab_id: 'lab-id' } },
-    }));
+    expect(mockExamRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { exa_id: 'exa-id', laboratory: { lab_id: 'lab-id' } },
+      }),
+    );
     expect(result.status).toBe(200);
     expect(result.data).toEqual(exam);
   });

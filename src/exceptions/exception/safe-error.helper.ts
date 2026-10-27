@@ -6,12 +6,12 @@
  * @returns texto seguro para registrar
  */
 export function describeError(error: any): string {
-
   if (!error) return 'Error desconocido';
 
   const name = error.name ?? error.constructor?.name ?? 'Error';
   const code = error.code ? ` [${error.code}]` : '';
-  const message = typeof error.message === 'string' ? error.message.slice(0, 300) : '';
+  const message =
+    typeof error.message === 'string' ? error.message.slice(0, 300) : '';
 
   return `${name}${code}: ${message}`;
 }

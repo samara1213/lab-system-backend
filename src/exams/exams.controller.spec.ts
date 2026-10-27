@@ -38,12 +38,18 @@ describe('ExamsController', () => {
     await controller.update(user, 'exa-1', { exa_name: 'X' } as any);
     expect(mockExamsService.findAllByLaboratory).toHaveBeenCalledWith('lab-a');
     expect(mockExamsService.findOne).toHaveBeenCalledWith('exa-1', 'lab-a');
-    expect(mockExamsService.update).toHaveBeenCalledWith('exa-1', 'lab-a', { exa_name: 'X' });
+    expect(mockExamsService.update).toHaveBeenCalledWith('exa-1', 'lab-a', {
+      exa_name: 'X',
+    });
   });
 
   it('rechaza con 404 un laboratorio ajeno', () => {
-    expect(() => controller.findAllByCompany(user, 'lab-b')).toThrow(NotFoundException);
-    expect(() => controller.create(user, { laboratory: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(() => controller.findAllByCompany(user, 'lab-b')).toThrow(
+      NotFoundException,
+    );
+    expect(() =>
+      controller.create(user, { laboratory: 'lab-b' } as any),
+    ).toThrow(NotFoundException);
     expect(mockExamsService.findAllByLaboratory).not.toHaveBeenCalled();
     expect(mockExamsService.create).not.toHaveBeenCalled();
   });

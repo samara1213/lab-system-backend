@@ -7,11 +7,13 @@ import { Role } from './entities/role.entity';
 import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Role]),
+  imports: [
+    TypeOrmModule.forFeature([Role]),
     forwardRef(() => AuthModule),
-    ExceptionModule],
+    ExceptionModule,
+  ],
   controllers: [RoleController],
   providers: [RoleService],
   exports: [TypeOrmModule],
 })
-export class RoleModule { }
+export class RoleModule {}

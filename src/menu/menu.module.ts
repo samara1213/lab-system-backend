@@ -7,11 +7,9 @@ import { Menu } from './entities/menu.entity';
 import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Menu]),
-    AuthModule,
-   ExceptionModule],
+  imports: [TypeOrmModule.forFeature([Menu]), AuthModule, ExceptionModule],
   controllers: [MenuController],
   providers: [MenuService],
   exports: [TypeOrmModule],
 })
-export class MenuModule { }
+export class MenuModule {}

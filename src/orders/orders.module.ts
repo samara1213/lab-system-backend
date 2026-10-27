@@ -10,12 +10,14 @@ import { EmailsModule } from '../emails/emails.module';
 import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order]),
-            AuthModule,
-            ExceptionModule,
-            PdfModule,
-            EmailsModule,
-            StorageModule], // Assuming Order is the entity for orders
+  imports: [
+    TypeOrmModule.forFeature([Order]),
+    AuthModule,
+    ExceptionModule,
+    PdfModule,
+    EmailsModule,
+    StorageModule,
+  ], // Assuming Order is the entity for orders
   controllers: [OrdersController],
   providers: [OrdersService],
   exports: [TypeOrmModule, OrdersService], // Exporting TypeOrmModule and OrdersService for use in other modules

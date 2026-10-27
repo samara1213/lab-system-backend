@@ -5,10 +5,9 @@ export const META_ROLES = 'roles';
 
 /**
  * funcion para regresar una lista de roles
- * @param args 
- * @returns 
+ * @param args
+ * @returns
  */
 export const RoleProtected = (...args: ValidRole[]) => {
-   
-    return SetMetadata(META_ROLES, args);
-} 
+  return SetMetadata(META_ROLES, args);
+};

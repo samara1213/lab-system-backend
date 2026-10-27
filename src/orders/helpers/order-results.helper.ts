@@ -7,7 +7,6 @@
  * @returns Objeto de la orden con exámenes y parámetros enriquecidos con resultado y observación
  */
 export function buildOrderResultsHierarchy(order: any) {
-    
   // Lista de resultados asociados a la orden
   const results = order.results || [];
   // Procesar cada examen de la orden
@@ -15,9 +14,9 @@ export function buildOrderResultsHierarchy(order: any) {
     // Procesar cada parámetro del examen
     const parameters = (exam.parameters || []).map((param: any) => {
       // Buscar el resultado correspondiente a este examen y parámetro
-      const result = results.find((r: any) =>
-        r.exam?.exa_id === exam.exa_id &&
-        r.param?.par_id === param.par_id
+      const result = results.find(
+        (r: any) =>
+          r.exam?.exa_id === exam.exa_id && r.param?.par_id === param.par_id,
       );
       // Retornar el parámetro enriquecido con el valor y observación del resultado
       return {
@@ -31,7 +30,7 @@ export function buildOrderResultsHierarchy(order: any) {
     // Retornar el examen con su lista de parámetros enriquecidos
     return {
       ...exam,
-      parameters
+      parameters,
     };
   });
   // Retornar la orden con la estructura jerárquica

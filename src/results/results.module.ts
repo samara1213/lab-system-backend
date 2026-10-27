@@ -8,12 +8,14 @@ import { ExceptionModule } from '../exceptions/exception/exception.module';
 import { OrdersModule } from 'src/orders/orders.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Result]),
-            AuthModule,
-            ExceptionModule,
-            OrdersModule], 
+  imports: [
+    TypeOrmModule.forFeature([Result]),
+    AuthModule,
+    ExceptionModule,
+    OrdersModule,
+  ],
   controllers: [ResultsController],
   providers: [ResultsService],
-  exports: [TypeOrmModule], 
+  exports: [TypeOrmModule],
 })
 export class ResultsModule {}

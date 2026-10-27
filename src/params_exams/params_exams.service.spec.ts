@@ -20,13 +20,20 @@ describe('ParamsExamsService', () => {
     exists: jest.fn(),
   };
   // el servicio real de excepciones propaga las HttpException
-  const mockExceptionService = { handleDBError: jest.fn((error) => { throw error; }) };
+  const mockExceptionService = {
+    handleDBError: jest.fn((error) => {
+      throw error;
+    }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ParamsExamsService,
-        { provide: getRepositoryToken(ParamsExam), useValue: mockParamsExamsRepo },
+        {
+          provide: getRepositoryToken(ParamsExam),
+          useValue: mockParamsExamsRepo,
+        },
         { provide: getRepositoryToken(Exam), useValue: mockExamRepo },
         { provide: ExceptionService, useValue: mockExceptionService },
       ],
@@ -49,7 +56,9 @@ describe('ParamsExamsService', () => {
     mockParamsExamsRepo.save.mockResolvedValue(paramExam);
     const result = await service.create('lab-uuid', dto as any);
     expect(result.status).toBe(201);
-    expect(mockExamRepo.exists).toHaveBeenCalledWith({ where: { exa_id: 'exa-uuid', laboratory: { lab_id: 'lab-uuid' } } });
+    expect(mockExamRepo.exists).toHaveBeenCalledWith({
+      where: { exa_id: 'exa-uuid', laboratory: { lab_id: 'lab-uuid' } },
+    });
     expect(mockExamRepo.create).toHaveBeenCalledWith({ exa_id: dto.exam });
     expect(mockParamsExamsRepo.create).toHaveBeenCalledWith({ ...dto, exam });
     expect(mockParamsExamsRepo.save).toHaveBeenCalledWith(paramExam);
@@ -57,7 +66,9 @@ describe('ParamsExamsService', () => {
 
   it('no debería crear un parámetro en un examen de otro laboratorio', async () => {
     mockExamRepo.exists.mockResolvedValue(false);
-    await expect(service.create('lab-uuid', { name: 'p', exam: 'exa-otro' } as any)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.create('lab-uuid', { name: 'p', exam: 'exa-otro' } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(mockParamsExamsRepo.save).not.toHaveBeenCalled();
   });
 
@@ -73,13 +84,19 @@ describe('ParamsExamsService', () => {
     const result = await service.update('par-uuid', 'lab-uuid', dto as any);
     expect(result.status).toBe(200);
     expect(mockExamRepo.create).toHaveBeenCalledWith({ exa_id: dto.exam });
-    expect(mockParamsExamsRepo.preload).toHaveBeenCalledWith({ par_id: 'par-uuid', name: 'nuevo', exam });
+    expect(mockParamsExamsRepo.preload).toHaveBeenCalledWith({
+      par_id: 'par-uuid',
+      name: 'nuevo',
+      exam,
+    });
     expect(mockParamsExamsRepo.save).toHaveBeenCalledWith(paramExam);
   });
 
   it('no debería actualizar un parámetro de otro laboratorio', async () => {
     mockParamsExamsRepo.exists.mockResolvedValue(false);
-    await expect(service.update('par-uuid', 'lab-uuid', { name: 'x' } as any)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.update('par-uuid', 'lab-uuid', { name: 'x' } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(mockParamsExamsRepo.save).not.toHaveBeenCalled();
   });
 
@@ -89,6 +106,10 @@ describe('ParamsExamsService', () => {
     const result = await service.findByExamId('exa-uuid', 'lab-uuid');
     expect(result.status).toBe(200);
     expect(result.data).toEqual(params);
-    expect(mockParamsExamsRepo.find).toHaveBeenCalledWith({ where: { exam: { exa_id: 'exa-uuid', laboratory: { lab_id: 'lab-uuid' } } } });
+    expect(mockParamsExamsRepo.find).toHaveBeenCalledWith({
+      where: {
+        exam: { exa_id: 'exa-uuid', laboratory: { lab_id: 'lab-uuid' } },
+      },
+    });
   });
 });

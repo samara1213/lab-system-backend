@@ -7,7 +7,6 @@ import { Alliance } from './entities/alliance.entity';
 import { Laboratory } from '../laboratory/entities/laboratory.entity';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 
-
 @Injectable()
 export class AllianceService {
   constructor(
@@ -26,9 +25,7 @@ export class AllianceService {
    * @returns respuesta del proceso
    */
   async create(lab_id: string, createAllianceDto: CreateAllianceDto) {
-
     try {
-
       // la alianza siempre queda en el laboratorio del usuario
       const laboratory = this.laboratoryRepository.create({ lab_id });
 
@@ -46,14 +43,10 @@ export class AllianceService {
         status: 201,
         message: 'se ha creado correctamente la alianza',
       };
-
     } catch (error) {
-      
       this.exceptionService.handleDBError(error);
     }
-
   }
-
 
   /**
    * Actualiza una alianza por su id
@@ -62,10 +55,12 @@ export class AllianceService {
    * @param updateAllianceDto datos a actualizar
    * @returns respuesta del proceso
    */
-  async update(id: string, lab_id: string, updateAllianceDto: UpdateAllianceDto) {
-
+  async update(
+    id: string,
+    lab_id: string,
+    updateAllianceDto: UpdateAllianceDto,
+  ) {
     try {
-
       // la alianza debe pertenecer al laboratorio del usuario
       const exists = await this.allianceRepository.exists({
         where: { ali_id: id, laboratory: { lab_id } },
@@ -84,22 +79,20 @@ export class AllianceService {
         ali_id: id,
         ...allianceData,
       });
-      
+
       // actualizamos la alianza
       await this.allianceRepository.save(alliance);
-     
+
       // respuesta del proceso de actualización
       return {
         status: 200,
         message: 'Alianza actualizada correctamente',
         data: alliance,
       };
-    
     } catch (error) {
-
       this.exceptionService.handleDBError(error);
     }
-  }  
+  }
 
   /**
    * Lista todas las alianzas de un laboratorio por su id
@@ -107,23 +100,19 @@ export class AllianceService {
    * @returns lista de alianzas
    */
   async findAllByLaboratory(lab_id: string) {
-
     try {
       // buscamos los registros de alianzas por el id del laboratorio
       const alliances = await this.allianceRepository.find({
         where: { laboratory: { lab_id } },
       });
-    
+
       // regresamos la lista de alianzas
       return {
         status: 200,
         data: alliances ?? [],
-      }
-    
+      };
     } catch (error) {
-    
       this.exceptionService.handleDBError(error);
     }
   }
-
 }

@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+} from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 
 @Entity('attached')
@@ -12,6 +18,6 @@ export class Attached {
   @CreateDateColumn({ type: 'timestamp', name: 'att_created_at' })
   att_created_at: Date;
 
-  @ManyToOne(() => Order, order => order.attachedFiles, { nullable: false })
+  @ManyToOne(() => Order, (order) => order.attachedFiles, { nullable: false })
   order: Order;
 }

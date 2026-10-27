@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UpdateAuthDto } from './dto/update-auth.dto';
@@ -45,16 +54,19 @@ export class AuthController {
   @Get(':laboratoryId')
   @Auth()
   @RequireMenu('/users')
-  findUsersByLaboratory(@Param('laboratoryId', ParseUUIDPipe) laboratoryId: string) {
-
+  findUsersByLaboratory(
+    @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,
+  ) {
     return this.authService.findUsersByLaboratory(laboratoryId);
   }
 
   @Patch(':id')
   @Auth()
   @RequireMenu('/users')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateAuthDto: UpdateAuthDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateAuthDto: UpdateAuthDto,
+  ) {
     return this.authService.update(id, updateAuthDto);
   }
-
 }

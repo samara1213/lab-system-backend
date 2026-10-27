@@ -36,7 +36,15 @@ describe('LaboratoryService', () => {
   });
 
   it('debería crear un laboratorio', async () => {
-    const dto = { lab_nit: '123', lab_name: 'Lab', lab_address: '', lab_phone: '', lab_status: '', lab_email: '', lab_legal_representative: '' };
+    const dto = {
+      lab_nit: '123',
+      lab_name: 'Lab',
+      lab_address: '',
+      lab_phone: '',
+      lab_status: '',
+      lab_email: '',
+      lab_legal_representative: '',
+    };
     const lab = { ...dto };
     mockLabRepo.create.mockReturnValue(lab);
     mockLabRepo.save.mockResolvedValue(lab);
@@ -69,9 +77,14 @@ describe('LaboratoryService', () => {
     const lab = { lab_id: 'exists', lab_name: 'Updated' };
     mockLabRepo.preload.mockResolvedValueOnce(lab);
     mockLabRepo.save.mockResolvedValueOnce(lab);
-    const result = await service.update('exists', { lab_name: 'Updated' } as any);
+    const result = await service.update('exists', {
+      lab_name: 'Updated',
+    } as any);
     expect(result.status).toBe(200);
-    expect(mockLabRepo.preload).toHaveBeenCalledWith({ lab_id: 'exists', lab_name: 'Updated' });
+    expect(mockLabRepo.preload).toHaveBeenCalledWith({
+      lab_id: 'exists',
+      lab_name: 'Updated',
+    });
     expect(mockLabRepo.save).toHaveBeenCalled();
   });
 });

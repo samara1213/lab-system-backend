@@ -12,15 +12,19 @@ export const NOT_FOUND_MESSAGE = 'No existe registro con estos datos';
  * @param requestedLabId laboratorio enviado por el cliente (opcional)
  * @returns id del laboratorio del usuario
  */
-export function resolveLaboratoryId(user: User, requestedLabId?: string): string {
+export function resolveLaboratoryId(
+  user: User,
+  requestedLabId?: string,
+): string {
+  const labId = user?.laboratory?.lab_id;
 
-    const labId = user?.laboratory?.lab_id;
+  // el usuario debe tener un laboratorio asignado para operar datos del laboratorio
+  if (!labId)
+    throw new ForbiddenException('El usuario no tiene un laboratorio asignado');
 
-    // el usuario debe tener un laboratorio asignado para operar datos del laboratorio
-    if (!labId) throw new ForbiddenException('El usuario no tiene un laboratorio asignado');
+  // el laboratorio enviado por el cliente debe ser el del usuario
+  if (requestedLabId && requestedLabId !== labId)
+    throw new NotFoundException(NOT_FOUND_MESSAGE);
 
-    // el laboratorio enviado por el cliente debe ser el del usuario
-    if (requestedLabId && requestedLabId !== labId) throw new NotFoundException(NOT_FOUND_MESSAGE);
-
-    return labId;
+  return labId;
 }

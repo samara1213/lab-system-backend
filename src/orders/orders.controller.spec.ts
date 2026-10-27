@@ -19,9 +19,7 @@ describe('OrdersController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [OrdersController],
-      providers: [
-        { provide: OrdersService, useValue: mockOrdersService },
-      ],
+      providers: [{ provide: OrdersService, useValue: mockOrdersService }],
     }).compile();
     controller = module.get<OrdersController>(OrdersController);
     jest.clearAllMocks();
@@ -36,30 +34,56 @@ describe('OrdersController', () => {
     mockOrdersService.findOne.mockResolvedValue(expected);
     const result = await controller.findOne(user, 'order-uuid');
     expect(result).toEqual(expected);
-    expect(mockOrdersService.findOne).toHaveBeenCalledWith('order-uuid', 'lab-a');
+    expect(mockOrdersService.findOne).toHaveBeenCalledWith(
+      'order-uuid',
+      'lab-a',
+    );
   });
 
   it('debería enviar correo de resultados con el laboratorio del usuario', async () => {
     mockOrdersService.sendEmailResults.mockResolvedValue({ status: 200 });
     await controller.sendEmailResults(user, 'order-uuid');
-    expect(mockOrdersService.sendEmailResults).toHaveBeenCalledWith('order-uuid', 'lab-a');
+    expect(mockOrdersService.sendEmailResults).toHaveBeenCalledWith(
+      'order-uuid',
+      'lab-a',
+    );
   });
 
   it('completa el lab_id con el del usuario cuando el cliente no lo envía', async () => {
-    await controller.findByLaboratoryAndStatus(user, { ord_status: 'PENDIENTE' });
-    expect(mockOrdersService.findByLaboratoryAndStatus).toHaveBeenCalledWith({ ord_status: 'PENDIENTE', lab_id: 'lab-a' });
+    await controller.findByLaboratoryAndStatus(user, {
+      ord_status: 'PENDIENTE',
+    });
+    expect(mockOrdersService.findByLaboratoryAndStatus).toHaveBeenCalledWith({
+      ord_status: 'PENDIENTE',
+      lab_id: 'lab-a',
+    });
   });
 
   it('rechaza con 404 un lab_id de otro laboratorio sin llamar al service', () => {
-    expect(() => controller.findByLaboratoryAndStatus(user, { lab_id: 'lab-b', ord_status: 'PENDIENTE' })).toThrow(NotFoundException);
-    expect(() => controller.countOrdersToday(user, 'lab-b')).toThrow(NotFoundException);
-    expect(() => controller.create(user, { lab_id: 'lab-b' } as any)).toThrow(NotFoundException);
+    expect(() =>
+      controller.findByLaboratoryAndStatus(user, {
+        lab_id: 'lab-b',
+        ord_status: 'PENDIENTE',
+      }),
+    ).toThrow(NotFoundException);
+    expect(() => controller.countOrdersToday(user, 'lab-b')).toThrow(
+      NotFoundException,
+    );
+    expect(() => controller.create(user, { lab_id: 'lab-b' } as any)).toThrow(
+      NotFoundException,
+    );
     expect(mockOrdersService.findByLaboratoryAndStatus).not.toHaveBeenCalled();
     expect(mockOrdersService.create).not.toHaveBeenCalled();
   });
 
   it('cambia el estado validando el laboratorio del usuario', async () => {
-    await controller.changeStatus(user, { ord_id: 'ord-1', ord_status: 'PROCESANDO' });
-    expect(mockOrdersService.changeStatus).toHaveBeenCalledWith({ ord_id: 'ord-1', ord_status: 'PROCESANDO' }, 'lab-a');
+    await controller.changeStatus(user, {
+      ord_id: 'ord-1',
+      ord_status: 'PROCESANDO',
+    });
+    expect(mockOrdersService.changeStatus).toHaveBeenCalledWith(
+      { ord_id: 'ord-1', ord_status: 'PROCESANDO' },
+      'lab-a',
+    );
   });
 });

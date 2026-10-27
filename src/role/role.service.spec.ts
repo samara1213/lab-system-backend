@@ -68,7 +68,10 @@ describe('RoleService', () => {
     mockRoleRepo.save.mockResolvedValue(role);
     const result = await service.update('1', dto as any);
     expect(result.status).toBe(200);
-    expect(mockRoleRepo.preload).toHaveBeenCalledWith({ rol_id: '1', name: 'nuevo' });
+    expect(mockRoleRepo.preload).toHaveBeenCalledWith({
+      rol_id: '1',
+      name: 'nuevo',
+    });
     expect(mockRoleRepo.save).toHaveBeenCalledWith(role);
   });
 });

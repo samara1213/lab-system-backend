@@ -20,7 +20,6 @@ import { AttachedModule } from './attached/attached.module';
 import { validateEnv } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.config';
 
-
 @Module({
   imports: [
     // valida las variables de entorno al arrancar
@@ -36,7 +35,21 @@ import { buildDataSourceOptions } from './database/database.config';
       throttlers: [{ ttl: 60_000, limit: 10 }],
       errorMessage: 'Demasiados intentos. Espere un minuto e intente de nuevo',
     }),
-    AuthModule, EmailsModule, CustomersModule, ExamsModule, ParamsExamsModule, LaboratoryModule, MenuModule, RoleModule, AllianceModule, OrdersModule, ResultsModule, ExceptionModule, PdfModule, StorageModule, AttachedModule, 
+    AuthModule,
+    EmailsModule,
+    CustomersModule,
+    ExamsModule,
+    ParamsExamsModule,
+    LaboratoryModule,
+    MenuModule,
+    RoleModule,
+    AllianceModule,
+    OrdersModule,
+    ResultsModule,
+    ExceptionModule,
+    PdfModule,
+    StorageModule,
+    AttachedModule,
   ],
   controllers: [],
   providers: [],

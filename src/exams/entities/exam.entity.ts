@@ -1,4 +1,14 @@
-import { Column, CreateDateColumn, Entity, Index, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Laboratory } from '../../laboratory/entities/laboratory.entity';
 import { Alliance } from '../../alliance/entities/alliance.entity';
 import { ParamsExam } from '../../params_exams/entities/params_exam.entity';
@@ -7,7 +17,6 @@ import { decimalTransformer } from '../../common/transformers/decimal.transforme
 
 @Entity('exams')
 export class Exam {
-
   @PrimaryGeneratedColumn('uuid')
   exa_id: string;
 
@@ -17,8 +26,11 @@ export class Exam {
   @Column('text', { nullable: true })
   exa_description: string;
 
-
-  @Column('decimal', { precision: 10, scale: 2, transformer: decimalTransformer })
+  @Column('decimal', {
+    precision: 10,
+    scale: 2,
+    transformer: decimalTransformer,
+  })
   exa_price: number;
 
   @Column('text', { nullable: true })

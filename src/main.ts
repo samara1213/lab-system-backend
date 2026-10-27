@@ -5,7 +5,6 @@ import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 
 async function bootstrap() {
-
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
@@ -13,6 +12,5 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT);
   logger.log(`Servidor corriendo en el puerto: ${process.env.PORT}`);
-
 }
 bootstrap();

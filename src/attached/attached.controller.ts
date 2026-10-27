@@ -1,4 +1,11 @@
-import { Controller, Post, UploadedFile, UseInterceptors, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AttachedService } from './attached.service';
 import { Auth } from '../auth/decorators/auth.decorator';
@@ -12,13 +19,20 @@ import { MAX_ATTACHED_SIZE } from '../storage/file-type.helper';
 export class AttachedController {
   constructor(private readonly attachedService: AttachedService) {}
   @Post('upload/:id')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHED_SIZE, files: 1 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_ATTACHED_SIZE, files: 1 },
+    }),
+  )
   async uploadAttached(
     @GetUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
-
-    return await this.attachedService.create(id, resolveLaboratoryId(user), file);
+    return await this.attachedService.create(
+      id,
+      resolveLaboratoryId(user),
+      file,
+    );
   }
 }

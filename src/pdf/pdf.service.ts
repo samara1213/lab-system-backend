@@ -4,16 +4,14 @@ import { randomUUID } from 'crypto';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { StorageService } from '../storage/storage.service';
 
-
 @Injectable()
 export class PdfService {
   constructor(
     private readonly storageService: StorageService,
-    private readonly exceptionService: ExceptionService, 
-  ){}
+    private readonly exceptionService: ExceptionService,
+  ) {}
 
   async generateExamResultsPdf(orderResults: any): Promise<Buffer> {
-    
     // 1. Cargar la plantilla HTML
     const fs = await import('fs/promises');
     const path = await import('path');
@@ -22,46 +20,58 @@ export class PdfService {
 
     // Registrar helpers para startsWith y substring
     if (!Handlebars.helpers.startsWith) {
-      Handlebars.registerHelper('startsWith', function(str: string, prefix: string) {
-        return typeof str === 'string' && str.startsWith(prefix);
-      });
+      Handlebars.registerHelper(
+        'startsWith',
+        function (str: string, prefix: string) {
+          return typeof str === 'string' && str.startsWith(prefix);
+        },
+      );
     }
     if (!Handlebars.helpers.substring) {
-      Handlebars.registerHelper('substring', function(str: string, start: number) {
-        return typeof str === 'string' ? str.substring(start) : str;
-      });
+      Handlebars.registerHelper(
+        'substring',
+        function (str: string, start: number) {
+          return typeof str === 'string' ? str.substring(start) : str;
+        },
+      );
     }
     if (!Handlebars.helpers.eq) {
-      Handlebars.registerHelper('eq', function(a: any, b: any) {
+      Handlebars.registerHelper('eq', function (a: any, b: any) {
         return a === b;
       });
     }
     if (!Handlebars.helpers.or) {
-      Handlebars.registerHelper('or', function(...values: any[]) {
+      Handlebars.registerHelper('or', function (...values: any[]) {
         // el ultimo argumento son las opciones de Handlebars
         const args = values.slice(0, -1);
         return args.some(Boolean);
       });
     }
-        if (!Handlebars.helpers.and) {
-      Handlebars.registerHelper('and', function(...values: any[]) {
+    if (!Handlebars.helpers.and) {
+      Handlebars.registerHelper('and', function (...values: any[]) {
         // el ultimo argumento son las opciones de Handlebars
         const args = values.slice(0, -1);
         return args.every(Boolean);
       });
     }
     if (!Handlebars.helpers.not) {
-      Handlebars.registerHelper('not', function(value: any) {
+      Handlebars.registerHelper('not', function (value: any) {
         return !value;
       });
     }
     if (!Handlebars.helpers.contains) {
-      Handlebars.registerHelper('contains', function(str: string, substr: string) {
-        return typeof str === 'string' && str.toLowerCase().includes(substr.toLowerCase());
-      });
+      Handlebars.registerHelper(
+        'contains',
+        function (str: string, substr: string) {
+          return (
+            typeof str === 'string' &&
+            str.toLowerCase().includes(substr.toLowerCase())
+          );
+        },
+      );
     }
     if (!Handlebars.helpers.toLowerCase) {
-      Handlebars.registerHelper('toLowerCase', function(str: string) {
+      Handlebars.registerHelper('toLowerCase', function (str: string) {
         return typeof str === 'string' ? str.toLowerCase() : str;
       });
     }
@@ -72,66 +82,101 @@ export class PdfService {
     if (__dirname.includes('dist')) {
       templatePath = path.resolve(__dirname, './templates/result-header.html');
     } else {
-      templatePath = path.resolve(process.cwd(), 'src/pdf/templates/result-header.html');
-    }    
+      templatePath = path.resolve(
+        process.cwd(),
+        'src/pdf/templates/result-header.html',
+      );
+    }
     try {
       templateHtml = await fs.readFile(templatePath, 'utf8');
     } catch {
-      throw new Error('No se encontró la plantilla result-header.html en: ' + templatePath);
+      throw new Error(
+        'No se encontró la plantilla result-header.html en: ' + templatePath,
+      );
     }
 
     // 2. Prepara los datos para la plantilla
     let edad = '';
-    const birth = orderResults.customer?.cus_birthdate ? new Date(orderResults.customer.cus_birthdate) : null;
+    const birth = orderResults.customer?.cus_birthdate
+      ? new Date(orderResults.customer.cus_birthdate)
+      : null;
     if (birth) {
       const now = new Date();
       let years = now.getFullYear() - birth.getFullYear();
       let months = now.getMonth() - birth.getMonth();
       let days = now.getDate() - birth.getDate();
-      if (days < 0) { months--; days += 30; }
-      if (months < 0) { years--; months += 12; }
+      if (days < 0) {
+        months--;
+        days += 30;
+      }
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
       edad = `${years} años, ${months} meses, ${days} días`;
     }
     const fechaOriginal = new Date(orderResults.ord_created_at);
-    const fechaIngreso = fechaOriginal.toLocaleString('es-CO', { timeZone: 'America/Bogota' });       
-    const fechaGeneracion = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
-
+    const fechaIngreso = fechaOriginal.toLocaleString('es-CO', {
+      timeZone: 'America/Bogota',
+    });
+    const fechaGeneracion = new Date().toLocaleString('es-CO', {
+      timeZone: 'America/Bogota',
+    });
 
     // 2.1. Convertir logo a base64 si existe
     let labLogoBase64 = '';
     if (orderResults.laboratory?.lab_logo) {
       try {
-        const logoBuffer = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_logo}`);
-        const ext = orderResults.laboratory.lab_logo.split('.').pop()?.toLowerCase() || 'png';
+        const logoBuffer = await this.storageService.getPrivateImageBuffer(
+          `logos_empresa/${orderResults.laboratory.lab_logo}`,
+        );
+        const ext =
+          orderResults.laboratory.lab_logo.split('.').pop()?.toLowerCase() ||
+          'png';
         labLogoBase64 = `data:image/${ext};base64,${logoBuffer.toString('base64')}`;
       } catch {
         labLogoBase64 = '';
       }
     }
 
-    const attachedFiles = Array.isArray(orderResults.attachedFiles) ? orderResults.attachedFiles : [];
+    const attachedFiles = Array.isArray(orderResults.attachedFiles)
+      ? orderResults.attachedFiles
+      : [];
     const hemogramaImages: string[] = [];
     for (const attached of attachedFiles) {
       let buffer = null;
       let ext = '';
       try {
-        buffer = await this.storageService.getPrivateImageBuffer(attached.att_file_url);
+        buffer = await this.storageService.getPrivateImageBuffer(
+          attached.att_file_url,
+        );
         ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
       } catch {
         buffer = null;
         ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
       }
       // Solo agregar si es imagen y buffer válido
-      if (buffer && ['png','jpg','jpeg','gif','bmp','webp'].includes(ext)) {
-        hemogramaImages.push(`data:image/${ext};base64,${buffer.toString('base64')}`);
+      if (
+        buffer &&
+        ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)
+      ) {
+        hemogramaImages.push(
+          `data:image/${ext};base64,${buffer.toString('base64')}`,
+        );
       }
     }
 
     let labSignatureBase64 = '';
     if (orderResults.laboratory?.lab_signature) {
       try {
-        const bufferFirma = await this.storageService.getPrivateImageBuffer(`logos_empresa/${orderResults.laboratory.lab_signature}`);
-        const extFirma = orderResults.laboratory.lab_signature.split('.').pop()?.toLowerCase() || 'png';
+        const bufferFirma = await this.storageService.getPrivateImageBuffer(
+          `logos_empresa/${orderResults.laboratory.lab_signature}`,
+        );
+        const extFirma =
+          orderResults.laboratory.lab_signature
+            .split('.')
+            .pop()
+            ?.toLowerCase() || 'png';
         labSignatureBase64 = `data:image/${extFirma};base64,${bufferFirma.toString('base64')}`;
       } catch {
         labSignatureBase64 = '';
@@ -157,20 +202,21 @@ export class PdfService {
         if (!seen.has(exam.exa_classification)) {
           seen.add(exam.exa_classification);
           const exams = orderResults.exams
-            .filter((e: any) => e.exa_classification === exam.exa_classification)
+            .filter(
+              (e: any) => e.exa_classification === exam.exa_classification,
+            )
             .map((ex: any) => {
               const sortedParams = Array.isArray(ex.parameters)
-                ? [...ex.parameters].sort((a, b) => (a.par_order ?? 0) - (b.par_order ?? 0))
+                ? [...ex.parameters].sort(
+                    (a, b) => (a.par_order ?? 0) - (b.par_order ?? 0),
+                  )
                 : ex.parameters;
               // Extraer observaciones únicas de los parámetros
               const uniqueObservations = [
                 ...new Set(
-                  (Array.isArray(sortedParams)
-                    ? sortedParams
-                    : []
-                  )
+                  (Array.isArray(sortedParams) ? sortedParams : [])
                     .map((p: any) => p.observation)
-                    .filter((obs: any) => !!obs && obs.trim() !== '')
+                    .filter((obs: any) => !!obs && obs.trim() !== ''),
                 ),
               ];
               return {
@@ -183,21 +229,28 @@ export class PdfService {
           const isHemograma = [1].includes(Number(exam.exa_classification));
           uniqueClassifications.push({
             classification_id: exam.exa_classification,
-            classification: classificationNames[exam.exa_classification] || exam.exa_classification,
+            classification:
+              classificationNames[exam.exa_classification] ||
+              exam.exa_classification,
             exams,
-            images: isHemograma ? hemogramaImages : undefined
+            images: isHemograma ? hemogramaImages : undefined,
           });
         }
       }
       // Ordenar de menor a mayor por classification_id
-      uniqueClassifications.sort((a, b) => a.classification_id - b.classification_id);
+      uniqueClassifications.sort(
+        (a, b) => a.classification_id - b.classification_id,
+      );
     }
 
     // 3. Renderizar HTML con Handlebars
     const template = Handlebars.compile(templateHtml);
     const html = template({
       ...orderResults,
-      cus_full_name: `${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`.replace(/\s+/g, ' ').trim(),
+      cus_full_name:
+        `${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`
+          .replace(/\s+/g, ' ')
+          .trim(),
       cus_document_number: orderResults.customer?.cus_document_number || '',
       cus_age: edad,
       cus_gender: orderResults.customer?.cus_gender || '',
@@ -211,61 +264,67 @@ export class PdfService {
       lab_phone: orderResults.laboratory?.lab_phone || '',
       lab_email: orderResults.laboratory?.lab_email || '',
       lab_signer_name: orderResults.laboratory?.lab_legal_representative || '',
-      lab_signer_role: orderResults.laboratory?.lab_signer_role || '', 
+      lab_signer_role: orderResults.laboratory?.lab_signer_role || '',
       lab_signature_base64: labSignatureBase64,
       uniqueClassifications,
       labSignatureBase64,
       edad,
       fechaIngreso,
       fechaGeneracion,
-    }); 
+    });
 
     // obtener encabezado para paginas
-    const templateHeaderHtml = this.getReportHeaderHtml(orderResults, edad, fechaIngreso, fechaGeneracion, labLogoBase64);
+    const templateHeaderHtml = this.getReportHeaderHtml(
+      orderResults,
+      edad,
+      fechaIngreso,
+      fechaGeneracion,
+      labLogoBase64,
+    );
     // 4. Generar PDF con Puppeteer
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox'],
+    });
     const page = await browser.newPage();
     // todo el contenido va embebido (imagenes en base64): basta con esperar el evento load
     await page.setContent(html, { waitUntil: 'load' });
-    const pdfBuffer = await page.pdf({ format: 'letter', 
-                                       printBackground: true,
-                                       margin: { top: '295px', 
-                                                 bottom: '40px', 
-                                                 left: '40px', 
-                                                 right: '40px' },
-                                      displayHeaderFooter: true,
-                                      headerTemplate: templateHeaderHtml,
-                                      footerTemplate: `<div></div>`});
+    const pdfBuffer = await page.pdf({
+      format: 'letter',
+      printBackground: true,
+      margin: { top: '295px', bottom: '40px', left: '40px', right: '40px' },
+      displayHeaderFooter: true,
+      headerTemplate: templateHeaderHtml,
+      footerTemplate: `<div></div>`,
+    });
     await browser.close();
     // Asegura que el resultado sea un Buffer (Node.js)
     return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
   }
-  
-  
+
   /**
    * Metodo para generar el PDF de resultados de exámenes y subirlo al almacenamiento
    * @param orderResults datos de los resultados
    * @returns url del archivo PDF generado
    */
   async generateResult(orderResults: any): Promise<string> {
-
     try {
-        // ontener el buffer del PDF generado
-        const pdfBuffer = await this.generateExamResultsPdf(orderResults);
+      // ontener el buffer del PDF generado
+      const pdfBuffer = await this.generateExamResultsPdf(orderResults);
 
-        //agregamos el nombre del archivo y lo subimos al almacenamiento
-        const fileName = `laboartorio=${orderResults.laboratory.lab_nit}/${orderResults.customer.cus_document_number}/resultados-${orderResults.ord_id}.pdf`;
+      //agregamos el nombre del archivo y lo subimos al almacenamiento
+      const fileName = `laboartorio=${orderResults.laboratory.lab_nit}/${orderResults.customer.cus_document_number}/resultados-${orderResults.ord_id}.pdf`;
 
-        // Subir el buffer del PDF al servicio de almacenamiento
-        const urlResult = await this.storageService.uploadFile(pdfBuffer, fileName);
-    
-        return urlResult; 
+      // Subir el buffer del PDF al servicio de almacenamiento
+      const urlResult = await this.storageService.uploadFile(
+        pdfBuffer,
+        fileName,
+      );
 
+      return urlResult;
     } catch (error) {
-        
-        this.exceptionService.handleDBError(error);
+      this.exceptionService.handleDBError(error);
     }
-
   }
 
   /**
@@ -275,21 +334,27 @@ export class PdfService {
    * @param fileType extension y mimetype detectados del contenido
    * @returns ruta del archivo en el storage
    */
-  async uploadFileBuffer(buffer: Buffer, lab_id: string, fileType: { ext: string; mime: string }): Promise<string> {
+  async uploadFileBuffer(
+    buffer: Buffer,
+    lab_id: string,
+    fileType: { ext: string; mime: string },
+  ): Promise<string> {
     try {
       // nombre unico; nunca se usa el nombre original enviado por el cliente
       const fileName = `${lab_id}/adjuntos/${randomUUID()}.${fileType.ext}`;
       // Sube el archivo al storage con su tipo real
-      const urlResult = await this.storageService.uploadFile(buffer, fileName, fileType.mime);
+      const urlResult = await this.storageService.uploadFile(
+        buffer,
+        fileName,
+        fileType.mime,
+      );
 
       return urlResult;
-
     } catch (error) {
       this.exceptionService.handleDBError(error);
-
     }
   }
-  
+
   /**
    * Devuelve el header HTML para el reporte de resultados de laboratorio
    * @param orderResults objeto completo de la orden
@@ -299,7 +364,13 @@ export class PdfService {
    * @param labLogoBase64 string base64 del logo
    * @returns string HTML del header
    */
-  getReportHeaderHtml(orderResults: any, edad: string, fechaIngreso: string, fechaGeneracion: string, labLogoBase64: string): string {
+  getReportHeaderHtml(
+    orderResults: any,
+    edad: string,
+    fechaIngreso: string,
+    fechaGeneracion: string,
+    labLogoBase64: string,
+  ): string {
     const lab = orderResults.laboratory || {};
     const customer = orderResults.customer || {};
     return `

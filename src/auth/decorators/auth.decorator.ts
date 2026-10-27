@@ -1,9 +1,9 @@
-import { UseGuards, applyDecorators } from "@nestjs/common";
-import { ValidRole } from "../interfaces/valid-role";
-import { AuthGuard } from "@nestjs/passport";
-import { UserRoleGuard } from "../guards/user-role/user-role.guard";
-import { MenuAccessGuard } from "../guards/menu-access/menu-access.guard";
-import { RoleProtected } from "./role-protected.decorator";
+import { UseGuards, applyDecorators } from '@nestjs/common';
+import { ValidRole } from '../interfaces/valid-role';
+import { AuthGuard } from '@nestjs/passport';
+import { UserRoleGuard } from '../guards/user-role/user-role.guard';
+import { MenuAccessGuard } from '../guards/menu-access/menu-access.guard';
+import { RoleProtected } from './role-protected.decorator';
 
 /**
  * funcion que se encarga de revisar si un token es valido
@@ -12,11 +12,8 @@ import { RoleProtected } from "./role-protected.decorator";
  * @returns
  */
 export function Auth(...roles: ValidRole[]) {
-
-    return applyDecorators(
-
-        RoleProtected(...roles),
-        UseGuards(AuthGuard(), UserRoleGuard, MenuAccessGuard),
-
-    )
+  return applyDecorators(
+    RoleProtected(...roles),
+    UseGuards(AuthGuard(), UserRoleGuard, MenuAccessGuard),
+  );
 }

@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, ParseUUIDPipe, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseUUIDPipe,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { MenuService } from './menu.service';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
@@ -27,7 +36,10 @@ export class MenuController {
 
   @Patch(':id')
   @RequireMenu('/menus')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateMenuDto: UpdateMenuDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateMenuDto: UpdateMenuDto,
+  ) {
     return this.menuService.update(id, updateMenuDto);
   }
 

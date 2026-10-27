@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, MaxLength, IsNumber, IsUUID, IsOptional } from "class-validator";
+import {
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  IsNumber,
+  IsUUID,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateExamDto {
   @IsString()
