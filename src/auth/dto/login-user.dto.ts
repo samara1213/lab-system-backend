@@ -13,6 +13,6 @@ export class LoginUserDto {
   @IsNotEmpty()
   @IsString()
   @MinLength(1)
-  @MaxLength(12)
+  @MaxLength(64)
   use_contrasena: string;
 }

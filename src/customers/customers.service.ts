@@ -31,8 +31,11 @@ export class CustomersService {
   async create(lab_id: string, createCustomerDto: CreateCustomerDto) {
     try {
       // el cliente siempre queda en el laboratorio del usuario
+      // segundo nombre y apellido son opcionales en el DTO pero NOT NULL en la tabla
       const customer = this.customerRepository.create({
         ...createCustomerDto,
+        cus_second_name: createCustomerDto.cus_second_name ?? '',
+        cus_second_lastname: createCustomerDto.cus_second_lastname ?? '',
         laboratory: { lab_id },
       });
 

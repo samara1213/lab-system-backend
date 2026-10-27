@@ -15,12 +15,14 @@ import { FilterCustomerDto } from './dto/filter-customer.dto';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { resolveLaboratoryId } from '../auth/helpers/laboratory-access.helper';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 
 @Auth()
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
+  @RequirePermission('customers:create')
   @Post()
   create(@GetUser() user: User, @Body() createCustomerDto: CreateCustomerDto) {
     return this.customersService.create(
@@ -29,6 +31,14 @@ export class CustomersController {
     );
   }
 
+  @RequirePermission('customers:view', 'orders:create')
+  @Get()
+  findAllByLaboratory(@GetUser() user: User) {
+    return this.customersService.findAllByCompany(resolveLaboratoryId(user));
+  }
+
+  // compatibilidad (laboratorio en la url): quitar en la Fase 7
+  @RequirePermission('customers:view', 'orders:create')
   @Get('/companies/:id')
   findAll(
     @GetUser() user: User,
@@ -39,6 +49,7 @@ export class CustomersController {
     );
   }
 
+  @RequirePermission('customers:view', 'orders:create')
   @Post('/searches')
   findOneCustomer(
     @GetUser() user: User,
@@ -50,6 +61,7 @@ export class CustomersController {
     });
   }
 
+  @RequirePermission('customers:update')
   @Patch(':id')
   update(
     @GetUser() user: User,

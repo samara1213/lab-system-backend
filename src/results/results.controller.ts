@@ -14,12 +14,14 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { resolveLaboratoryId } from '../auth/helpers/laboratory-access.helper';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 
 @Auth()
 @Controller('results')
 export class ResultsController {
   constructor(private readonly resultsService: ResultsService) {}
 
+  @RequirePermission('results:create')
   @Post()
   create(@GetUser() user: User, @Body() createResultDto: CreateResultDto) {
     return this.resultsService.create(
@@ -28,11 +30,13 @@ export class ResultsController {
     );
   }
 
+  @RequirePermission('results:view')
   @Get(':id')
   findOne(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.resultsService.findOne(id, resolveLaboratoryId(user));
   }
 
+  @RequirePermission('results:update')
   @Patch(':id')
   update(
     @GetUser() user: User,

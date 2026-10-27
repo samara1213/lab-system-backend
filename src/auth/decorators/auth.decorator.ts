@@ -1,19 +1,11 @@
 import { UseGuards, applyDecorators } from '@nestjs/common';
-import { ValidRole } from '../interfaces/valid-role';
 import { AuthGuard } from '@nestjs/passport';
-import { UserRoleGuard } from '../guards/user-role/user-role.guard';
-import { MenuAccessGuard } from '../guards/menu-access/menu-access.guard';
-import { RoleProtected } from './role-protected.decorator';
+import { PermissionsGuard } from '../../permissions/guards/permissions.guard';
 
 /**
- * funcion que se encarga de revisar si un token es valido
- * y, si el endpoint usa @RequireMenu, que el rol tenga la opcion de menu
- * @param roles
- * @returns
+ * Exige un token valido y, si el endpoint usa @RequirePermission, que el rol
+ * del usuario tenga alguno de esos permisos
  */
-export function Auth(...roles: ValidRole[]) {
-  return applyDecorators(
-    RoleProtected(...roles),
-    UseGuards(AuthGuard(), UserRoleGuard, MenuAccessGuard),
-  );
+export function Auth() {
+  return applyDecorators(UseGuards(AuthGuard(), PermissionsGuard));
 }

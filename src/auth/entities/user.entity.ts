@@ -50,11 +50,14 @@ export class User {
   })
   use_fecha_modificacion: Date;
 
-  @Column('text', {
-    nullable: true,
-    default: 'admin',
-  })
-  use_rol: string;
+  @Column('text', { nullable: true })
+  use_documento: string;
+
+  @Column('text', { nullable: true })
+  use_telefono: string;
+
+  @Column('timestamp', { nullable: true })
+  use_ultimo_ingreso: Date;
 
   @Column('text', {
     nullable: true,
@@ -66,6 +69,6 @@ export class User {
   laboratory: Laboratory;
 
   // Relación: un usuario solo puede tener un rol
-  @ManyToOne(() => Role)
+  @ManyToOne(() => Role, (role) => role.users)
   role: Role;
 }

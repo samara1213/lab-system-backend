@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, MaxLength, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  IsUUID,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateAllianceDto {
   @IsNotEmpty()
@@ -21,7 +27,8 @@ export class CreateAllianceDto {
   @MaxLength(100)
   ali_nombre_contacto: string;
 
-  @IsNotEmpty()
+  // obsoleto desde la Fase 3: el laboratorio sale de la sesion (si llega, debe ser el del usuario)
+  @IsOptional()
   @IsUUID()
-  ali_laboratory_id: string;
+  ali_laboratory_id?: string;
 }

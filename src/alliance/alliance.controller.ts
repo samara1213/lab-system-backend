@@ -14,12 +14,14 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { resolveLaboratoryId } from '../auth/helpers/laboratory-access.helper';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 
 @Auth()
 @Controller('alliance')
 export class AllianceController {
   constructor(private readonly allianceService: AllianceService) {}
 
+  @RequirePermission('alliances:create')
   @Post()
   create(@GetUser() user: User, @Body() createAllianceDto: CreateAllianceDto) {
     return this.allianceService.create(
@@ -28,6 +30,7 @@ export class AllianceController {
     );
   }
 
+  @RequirePermission('alliances:update')
   @Patch(':id')
   update(
     @GetUser() user: User,
@@ -41,6 +44,15 @@ export class AllianceController {
     );
   }
 
+  // convenios del laboratorio del usuario (crear orden y examenes tambien los listan)
+  @RequirePermission('alliances:view', 'orders:create', 'exams:view')
+  @Get()
+  findAll(@GetUser() user: User) {
+    return this.allianceService.findAllByLaboratory(resolveLaboratoryId(user));
+  }
+
+  // compatibilidad con el frontend anterior (laboratorio en la url): quitar en la Fase 7
+  @RequirePermission('alliances:view', 'orders:create', 'exams:view')
   @Get('laboratory/:lab_id')
   findAllByLaboratory(
     @GetUser() user: User,

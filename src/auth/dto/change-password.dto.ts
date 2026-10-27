@@ -12,13 +12,11 @@ export class ChangePasswordDto {
 
   @IsNotEmpty()
   @IsString()
-  @MinLength(1)
-  @MaxLength(12)
+  @MaxLength(64)
   use_old_contrasena: string;
 
-  @IsNotEmpty()
   @IsString()
-  @MinLength(1)
-  @MaxLength(12)
+  @MinLength(8)
+  @MaxLength(64)
   use_new_contrasena: string;
 }

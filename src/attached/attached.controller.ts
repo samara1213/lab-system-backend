@@ -12,12 +12,14 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { resolveLaboratoryId } from '../auth/helpers/laboratory-access.helper';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 import { MAX_ATTACHED_SIZE } from '../storage/file-type.helper';
 
 @Auth()
 @Controller('attached')
 export class AttachedController {
   constructor(private readonly attachedService: AttachedService) {}
+  @RequirePermission('orders:update')
   @Post('upload/:id')
   @UseInterceptors(
     FileInterceptor('file', {

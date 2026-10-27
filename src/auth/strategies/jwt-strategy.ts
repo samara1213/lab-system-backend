@@ -24,14 +24,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payalod: JwtPayload): Promise<User> {
     const { use_id } = payalod;
 
-    // se carga el laboratorio (aislamiento de datos) y los menus del rol (permisos)
+    // se carga el laboratorio (aislamiento de datos) y los permisos del rol por modulo
     const user = await this.userRepository.findOne({
       where: { use_id },
       relations: {
         laboratory: true,
-
         role: {
-          menus: true,
+          permissions: { module: true },
         },
       },
     });

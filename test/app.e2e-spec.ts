@@ -14,6 +14,8 @@ import {
   seedTestData,
   SeedData,
   TEST_PASSWORD,
+  TEST_USERS,
+  TestUser,
 } from './utils/test-database';
 
 /**
@@ -39,7 +41,12 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
     getSignedUrl: jest.fn(),
     getPrivateImageBuffer: jest.fn(),
   };
-  const emails = { sendMailWelcome: jest.fn(), sendMailResults: jest.fn() };
+  const emails = {
+    sendMailWelcome: jest.fn(),
+    sendMailResults: jest.fn(),
+    sendMailPasswordReset: jest.fn(),
+    sendMailTemporaryPassword: jest.fn(),
+  };
 
   beforeAll(async () => {
     // base vacía y esquema creado SOLO con las migraciones
@@ -66,15 +73,12 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
 
     data = await seedTestData(app.get(DataSource));
 
-    for (const correo of [
-      'admin-a@ejemplo.test',
-      'recep-a@ejemplo.test',
-      'recep-b@ejemplo.test',
-    ]) {
-      const res = await http
-        .post('/api/auth/login')
-        .send({ use_correo: correo, use_contrasena: TEST_PASSWORD });
-      tokens[correo.split('@')[0]] = res.body.token;
+    for (const name of TEST_USERS) {
+      const res = await http.post('/api/auth/login').send({
+        use_correo: `${name}@ejemplo.test`,
+        use_contrasena: TEST_PASSWORD,
+      });
+      tokens[name] = res.body.token;
     }
   });
 
@@ -82,9 +86,7 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
     await app?.close();
   });
 
-  const as = (user: 'admin-a' | 'recep-a' | 'recep-b') => ({
-    Authorization: `Bearer ${tokens[user]}`,
-  });
+  const as = (user: TestUser) => ({ Authorization: `Bearer ${tokens[user]}` });
 
   describe('migraciones', () => {
     it('las entidades coinciden con el esquema creado por las migraciones', async () => {
@@ -97,7 +99,8 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
   });
 
   describe('autenticación', () => {
-    it('inicia sesión con los 3 usuarios', () => {
+    it('inicia sesión con todos los usuarios de prueba', () => {
+      expect(Object.keys(tokens)).toHaveLength(TEST_USERS.length);
       expect(Object.values(tokens).every(Boolean)).toBe(true);
     });
 
@@ -448,46 +451,598 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
     });
   });
 
-  describe('administración global por opción de menú', () => {
-    it.each([
-      ['GET', '/api/laboratory'],
-      ['GET', '/api/role'],
-      ['GET', '/api/menu'],
-    ])(
-      '%s %s: 403 sin la opción de menú y 200 con ella',
-      async (_method, url) => {
-        await http.get(url).set(as('recep-a')).expect(403);
+  describe('sesión y menú (/auth/me)', () => {
+    it('devuelve permisos por módulo y solo el menú que el rol puede ver', async () => {
+      const res = await http
+        .get('/api/auth/me')
+        .set(as('consulta-a'))
+        .expect(200);
+      expect(res.body.data.permissions).toEqual({
+        orders: { view: true, create: false, update: false, delete: false },
+      });
+      expect(res.body.data.role.menus.map((m: any) => m.men_url)).toEqual([
+        '/dashboard',
+        '/orders/search',
+      ]);
+      expect(res.body.data).not.toHaveProperty('use_contrasena');
+    });
+
+    it('el super administrador ve todos los módulos, incluidos los globales', async () => {
+      const res = await http.get('/api/auth/me').set(as('admin-a')).expect(200);
+      expect(res.body.data.role.rol_is_system).toBe(true);
+      expect(res.body.data.permissions.laboratories.update).toBe(true);
+      expect(res.body.data.role.menus.map((m: any) => m.men_url)).toContain(
+        '/menus',
+      );
+    });
+
+    it('el login devuelve la misma sesión y registra el último ingreso', async () => {
+      const res = await http
+        .post('/api/auth/login')
+        .send({
+          use_correo: 'consulta-a@ejemplo.test',
+          use_contrasena: TEST_PASSWORD,
+        })
+        .expect(201);
+      expect(res.body.data.permissions.orders.view).toBe(true);
+      const me = await http.get('/api/auth/me').set(as('consulta-a'));
+      expect(me.body.data.use_ultimo_ingreso).toBeTruthy();
+    });
+  });
+
+  describe('permisos por acción', () => {
+    it('solo ver órdenes: lista y ve, pero no crea, no cancela ni registra resultados', async () => {
+      await http
+        .get(`/api/orders/${data.A.ord_id}`)
+        .set(as('consulta-a'))
+        .expect(200);
+      await http
+        .post('/api/orders/laboratory')
+        .set(as('consulta-a'))
+        .send({ ord_status: 'PENDIENTE' })
+        .expect(201);
+      await http
+        .post('/api/orders')
+        .set(as('consulta-a'))
+        .send({
+          ord_total_value: 1,
+          cus_id: data.A.cus_id,
+          exa_ids: [data.A.exa_id],
+        })
+        .expect(403);
+      await http
+        .delete(`/api/orders/${data.A.ord_id}`)
+        .set(as('consulta-a'))
+        .expect(403);
+      await http
+        .post('/api/results')
+        .set(as('consulta-a'))
+        .send({
+          res_value: '1',
+          order: data.A.ord_id,
+          exam: data.A.exa_id,
+          param: data.A.par_id,
+        })
+        .expect(403);
+      await http.get('/api/exams').set(as('consulta-a')).expect(403);
+    });
+
+    it('quien crea órdenes lista exámenes, convenios y pacientes aunque no tenga esos módulos', async () => {
+      await http
+        .post('/api/role')
+        .set(as('admin-a'))
+        .send({
+          rol_nombre: 'SOLO ORDENES',
+          permissions: [
+            {
+              module: 'orders',
+              view: true,
+              create: true,
+              update: false,
+              delete: false,
+            },
+          ],
+        })
+        .expect(201);
+      const role = (
+        await http.get('/api/role').set(as('admin-a'))
+      ).body.data.find((r: any) => r.rol_nombre === 'SOLO ORDENES');
+      await http
+        .post('/api/auth/register')
+        .set(as('admin-a'))
+        .send({
+          use_primer_nombre: 'Solo',
+          use_primer_apellido: 'Ordenes',
+          use_correo: 'ordenes-a@ejemplo.test',
+          role: role.rol_id,
+        })
+        .expect(201);
+      const [, , password] = emails.sendMailWelcome.mock.calls.at(-1);
+      const login = await http
+        .post('/api/auth/login')
+        .send({
+          use_correo: 'ordenes-a@ejemplo.test',
+          use_contrasena: password,
+        })
+        .expect(201);
+      const auth = { Authorization: `Bearer ${login.body.token}` };
+
+      await http.get('/api/exams').set(auth).expect(200);
+      await http.get('/api/alliance').set(auth).expect(200);
+      await http
+        .post('/api/customers/searches')
+        .set(auth)
+        .send({ cus_document_number: '0000000001' })
+        .expect(201);
+      await http
+        .post('/api/exams')
+        .set(auth)
+        .send({ exa_name: 'X', exa_price: 1 })
+        .expect(403);
+      await http
+        .patch(`/api/customers/${data.A.cus_id}`)
+        .set(auth)
+        .send({ cus_first_name: 'X' })
+        .expect(403);
+    });
+
+    it.each([['/api/laboratory'], ['/api/menu']])(
+      'GET %s: módulo global, solo el super administrador',
+      async (url) => {
+        await http.get(url).set(as('labadmin-a')).expect(403);
         await http.get(url).set(as('admin-a')).expect(200);
       },
     );
+  });
 
-    it('usuarios: 403 sin menú; el administrador ve usuarios de otro laboratorio', async () => {
+  describe('rutas sin laboratorio en la url (Fase 3)', () => {
+    it('listan solo los datos del laboratorio de la sesión', async () => {
+      const exams = await http.get('/api/exams').set(as('recep-b')).expect(200);
+      expect(exams.body.data.map((e: any) => e.exa_id)).toEqual([
+        data.B.exa_id,
+      ]);
+      const alliances = await http
+        .get('/api/alliance')
+        .set(as('recep-b'))
+        .expect(200);
+      expect(alliances.body.data.map((a: any) => a.ali_id)).toEqual([
+        data.B.ali_id,
+      ]);
+    });
+
+    it('crear sin enviar el laboratorio lo toma de la sesión', async () => {
       await http
-        .get(`/api/auth/${data.A.lab_id}`)
-        .set(as('recep-a'))
+        .post('/api/orders')
+        .set(as('recep-b'))
+        .send({
+          ord_total_value: 1,
+          cus_id: data.B.cus_id,
+          exa_ids: [data.B.exa_id],
+        })
+        .expect(201);
+      await http
+        .post('/api/customers/searches')
+        .set(as('recep-b'))
+        .send({ cus_document_number: '0000000002' })
+        .expect(201);
+      await http
+        .post('/api/alliance')
+        .set(as('recep-b'))
+        .send({
+          ali_nombre: 'Convenio sin lab',
+          ali_direccion: 'Dir',
+          ali_telefono: '300',
+          ali_nombre_contacto: 'Contacto',
+        })
+        .expect(201);
+      await http
+        .post('/api/exams')
+        .set(as('recep-b'))
+        .send({ exa_name: 'Examen sin lab', exa_price: 1000 })
+        .expect(201);
+      await http
+        .post('/api/customers')
+        .set(as('recep-b'))
+        .send({
+          cus_document_type: 'CC',
+          cus_document_number: '0000000099',
+          cus_first_lastname: 'Prueba',
+          cus_first_name: 'Sin lab',
+          cus_address: 'Calle 1',
+          cus_gender: 'F',
+          cus_birthdate: '1990-01-01',
+          cus_phone: '3000000',
+          cus_email: 'sinlab@ejemplo.test',
+        })
+        .expect(201);
+      const alliances = await http.get('/api/alliance').set(as('recep-b'));
+      expect(alliances.body.data.map((a: any) => a.ali_nombre)).toContain(
+        'Convenio sin lab',
+      );
+    });
+  });
+
+  describe('usuarios', () => {
+    const nuevo = {
+      use_primer_nombre: 'Nuevo',
+      use_primer_apellido: 'Usuario',
+      use_correo: 'nuevo-a@ejemplo.test',
+    };
+
+    it('lista los usuarios del propio laboratorio; solo el super administrador consulta otro', async () => {
+      const res = await http
+        .get('/api/auth/users')
+        .set(as('labadmin-a'))
+        .expect(200);
+      expect(res.body.data.map((u: any) => u.use_correo)).not.toContain(
+        'recep-b@ejemplo.test',
+      );
+      expect(res.body.data[0]).not.toHaveProperty('use_contrasena');
+      await http
+        .get(`/api/auth/users?laboratory=${data.B.lab_id}`)
+        .set(as('labadmin-a'))
+        .expect(404);
+      const other = await http
+        .get(`/api/auth/users?laboratory=${data.B.lab_id}`)
+        .set(as('admin-a'))
+        .expect(200);
+      expect(other.body.data.map((u: any) => u.use_correo)).toEqual([
+        'recep-b@ejemplo.test',
+      ]);
+      await http.get('/api/auth/users').set(as('recep-a')).expect(403);
+    });
+
+    it('el administrador de laboratorio no asigna roles con más permisos que el suyo', async () => {
+      // RECEPCION crea resultados; ADMIN LAB solo los ve
+      await http
+        .post('/api/auth/register')
+        .set(as('labadmin-a'))
+        .send({ ...nuevo, role: data.roles.recepcion })
         .expect(403);
       await http
-        .get(`/api/auth/${data.B.lab_id}`)
-        .set(as('admin-a'))
+        .post('/api/auth/register')
+        .set(as('labadmin-a'))
+        .send({ ...nuevo, role: data.roles.admin })
+        .expect(403);
+      await http
+        .post('/api/auth/register')
+        .set(as('labadmin-a'))
+        .send({
+          ...nuevo,
+          role: data.roles.consulta,
+          laboratory: data.B.lab_id,
+        })
+        .expect(404);
+      await http
+        .post('/api/auth/register')
+        .set(as('labadmin-a'))
+        .send({ ...nuevo, role: data.roles.consulta })
+        .expect(201);
+      expect(emails.sendMailWelcome).toHaveBeenCalledWith(
+        'nuevo-a@ejemplo.test',
+        'Nuevo Usuario',
+        expect.any(String),
+      );
+    });
+
+    it('nadie cambia su propio rol ni estado; no edita usuarios de otro laboratorio', async () => {
+      const self = data.users['labadmin-a@ejemplo.test'];
+      await http
+        .patch(`/api/auth/${self}`)
+        .set(as('labadmin-a'))
+        .send({ role: data.roles.consulta })
+        .expect(403);
+      await http
+        .patch(`/api/auth/${self}/status`)
+        .set(as('labadmin-a'))
+        .send({ use_estado: 'INACTIVO' })
+        .expect(403);
+      await http
+        .patch(`/api/auth/${data.users['recep-b@ejemplo.test']}`)
+        .set(as('labadmin-a'))
+        .send({ use_primer_nombre: 'X' })
+        .expect(404);
+      await http
+        .patch(`/api/auth/${data.users['admin-a@ejemplo.test']}`)
+        .set(as('labadmin-a'))
+        .send({ use_primer_nombre: 'X' })
+        .expect(403);
+    });
+
+    it('un usuario desactivado no puede ingresar ni usar su token', async () => {
+      const id = data.users['consulta-a@ejemplo.test'];
+      await http
+        .patch(`/api/auth/${id}/status`)
+        .set(as('labadmin-a'))
+        .send({ use_estado: 'INACTIVO' })
+        .expect(200);
+      await http.get('/api/auth/me').set(as('consulta-a')).expect(401);
+      await http
+        .post('/api/auth/login')
+        .send({
+          use_correo: 'consulta-a@ejemplo.test',
+          use_contrasena: TEST_PASSWORD,
+        })
+        .expect(401);
+      await http
+        .patch(`/api/auth/${id}/status`)
+        .set(as('labadmin-a'))
+        .send({ use_estado: 'ACTIVO' })
+        .expect(200);
+      await http.get('/api/auth/me').set(as('consulta-a')).expect(200);
+    });
+
+    it('restablecer contraseña envía una temporal y obliga a cambiarla', async () => {
+      const id =
+        data.users['nuevo-a@ejemplo.test'] ??
+        (
+          await http.get('/api/auth/users').set(as('labadmin-a'))
+        ).body.data.find((u: any) => u.use_correo === nuevo.use_correo).use_id;
+      await http
+        .post(`/api/auth/${id}/reset-password`)
+        .set(as('labadmin-a'))
+        .expect(200);
+      const [, , password] = emails.sendMailTemporaryPassword.mock.calls.at(-1);
+      const login = await http
+        .post('/api/auth/login')
+        .send({ use_correo: nuevo.use_correo, use_contrasena: password })
+        .expect(201);
+      expect(login.body.data.use_primer_ingreso).toBe(true);
+    });
+  });
+
+  describe('roles', () => {
+    it('el administrador de laboratorio ve los roles globales y los de su laboratorio, no los del sistema', async () => {
+      const res = await http.get('/api/role').set(as('labadmin-a')).expect(200);
+      const names = res.body.data.map((r: any) => r.rol_nombre);
+      expect(names).toEqual(
+        expect.arrayContaining(['ADMIN LAB', 'RECEPCION', 'CONSULTA']),
+      );
+      expect(names).not.toContain('ADMIN');
+      expect(names).not.toContain('Super administrador');
+      const recepcion = res.body.data.find(
+        (r: any) => r.rol_nombre === 'RECEPCION',
+      );
+      expect(recepcion).toMatchObject({
+        editable: false,
+        assignable: false,
+        users_count: 2,
+      });
+    });
+
+    it('el catálogo de módulos no incluye los globales para un administrador de laboratorio', async () => {
+      const res = await http
+        .get('/api/role/modules')
+        .set(as('labadmin-a'))
+        .expect(200);
+      expect(res.body.data.map((m: any) => m.mod_slug)).not.toContain('menus');
+    });
+
+    it('crea, edita y elimina roles de su laboratorio sin escalar permisos', async () => {
+      await http
+        .post('/api/role')
+        .set(as('labadmin-a'))
+        .send({
+          rol_nombre: 'Escalado',
+          permissions: [
+            {
+              module: 'results',
+              view: true,
+              create: true,
+              update: false,
+              delete: false,
+            },
+          ],
+        })
+        .expect(403);
+      await http
+        .post('/api/role')
+        .set(as('labadmin-a'))
+        .send({
+          rol_nombre: 'Auxiliar',
+          permissions: [
+            {
+              module: 'orders',
+              view: true,
+              create: true,
+              update: false,
+              delete: false,
+            },
+          ],
+        })
+        .expect(201);
+      const list = await http.get('/api/role').set(as('labadmin-a'));
+      const auxiliar = list.body.data.find(
+        (r: any) => r.rol_nombre === 'Auxiliar',
+      );
+      expect(auxiliar).toMatchObject({
+        laboratory: { lab_id: data.A.lab_id },
+        editable: true,
+        assignable: true,
+      });
+      await http
+        .patch(`/api/role/${auxiliar.rol_id}`)
+        .set(as('labadmin-a'))
+        .send({
+          permissions: [
+            {
+              module: 'orders',
+              view: true,
+              create: false,
+              update: false,
+              delete: false,
+            },
+          ],
+        })
+        .expect(200);
+      await http
+        .patch(`/api/role/${data.roles.recepcion}`)
+        .set(as('labadmin-a'))
+        .send({ rol_nombre: 'Otro nombre' })
+        .expect(403);
+      await http
+        .patch(`/api/role/${data.roles.labAdmin}`)
+        .set(as('labadmin-a'))
+        .send({ rol_nombre: 'Otro nombre' })
+        .expect(403);
+      await http
+        .delete(`/api/role/${data.roles.consulta}`)
+        .set(as('labadmin-a'))
+        .expect(403);
+      await http
+        .delete(`/api/role/${auxiliar.rol_id}`)
+        .set(as('labadmin-a'))
         .expect(200);
     });
 
-    it('sin menú no registra usuarios, no cambia roles ni crea menús', async () => {
+    it('el mismo nombre de rol puede existir en dos laboratorios', async () => {
       await http
-        .post('/api/auth/register')
-        .set(as('recep-a'))
-        .send({ use_correo: 'x@ejemplo.test' })
-        .expect(403);
+        .post('/api/role')
+        .set(as('admin-a'))
+        .send({
+          rol_nombre: 'Toma de muestras',
+          laboratory: data.A.lab_id,
+          permissions: [],
+        })
+        .expect(201);
       await http
-        .patch(`/api/auth/${data.users['recep-a@ejemplo.test']}`)
-        .set(as('recep-a'))
-        .send({ role: data.roles.admin })
-        .expect(403);
+        .post('/api/role')
+        .set(as('admin-a'))
+        .send({
+          rol_nombre: 'Toma de muestras',
+          laboratory: data.B.lab_id,
+          permissions: [],
+        })
+        .expect(201);
+      await http
+        .post('/api/role')
+        .set(as('admin-a'))
+        .send({
+          rol_nombre: 'Toma de muestras',
+          laboratory: data.A.lab_id,
+          permissions: [],
+        })
+        .expect(409);
+    });
+
+    it('un rol de otro laboratorio responde 404', async () => {
+      const list = await http
+        .get(`/api/role?laboratory=${data.B.lab_id}`)
+        .set(as('admin-a'));
+      const rolB = list.body.data.find(
+        (r: any) => r.laboratory?.lab_id === data.B.lab_id,
+      );
+      await http
+        .get(`/api/role/${rolB.rol_id}`)
+        .set(as('labadmin-a'))
+        .expect(404);
+    });
+  });
+
+  describe('menús (super administrador)', () => {
+    it('crea con módulo obligatorio, ordena y no permite más de 3 niveles', async () => {
       await http
         .post('/api/menu')
-        .set(as('recep-a'))
-        .send({ men_name: 'X' })
-        .expect(403);
+        .set(as('admin-a'))
+        .send({ men_name: 'Sin módulo', men_url: '/x' })
+        .expect(400);
+      await http
+        .post('/api/menu')
+        .set(as('admin-a'))
+        .send({ men_name: 'Grupo' })
+        .expect(201);
+      const menus = (await http.get('/api/menu').set(as('admin-a'))).body.data;
+      const grupo = menus.find((m: any) => m.men_name === 'Grupo');
+      expect(grupo.men_order).toBe(
+        menus.filter((m: any) => m.men_level === 1).length,
+      );
+      await http
+        .post('/api/menu')
+        .set(as('admin-a'))
+        .send({ men_name: 'Nivel 2', men_parent: grupo.men_id })
+        .expect(201);
+      const nivel2 = (
+        await http.get('/api/menu').set(as('admin-a'))
+      ).body.data.find((m: any) => m.men_name === 'Nivel 2');
+      await http
+        .post('/api/menu')
+        .set(as('admin-a'))
+        .send({
+          men_name: 'Nivel 3',
+          men_parent: nivel2.men_id,
+          men_url: '/n3',
+          module: 'orders',
+        })
+        .expect(201);
+      const nivel3 = (
+        await http.get('/api/menu').set(as('admin-a'))
+      ).body.data.find((m: any) => m.men_name === 'Nivel 3');
+      await http
+        .post('/api/menu')
+        .set(as('admin-a'))
+        .send({ men_name: 'Nivel 4', men_parent: nivel3.men_id })
+        .expect(400);
+      await http
+        .patch(`/api/menu/${grupo.men_id}`)
+        .set(as('admin-a'))
+        .send({ men_parent: nivel3.men_id })
+        .expect(400);
+      await http
+        .patch(`/api/menu/${grupo.men_id}/move`)
+        .set(as('admin-a'))
+        .send({ direction: 'up' })
+        .expect(200);
+      await http
+        .delete(`/api/menu/${grupo.men_id}`)
+        .set(as('admin-a'))
+        .expect(409);
+    });
+  });
+
+  describe('recuperación de contraseña', () => {
+    it('responde igual exista o no el correo, y solo envía el enlace si existe', async () => {
+      const unknown = await http
+        .post('/api/auth/forgot-password')
+        .send({ use_correo: 'nadie@ejemplo.test' })
+        .expect(200);
+      expect(emails.sendMailPasswordReset).not.toHaveBeenCalled();
+      const known = await http
+        .post('/api/auth/forgot-password')
+        .send({ use_correo: 'recep-b@ejemplo.test' })
+        .expect(200);
+      expect(known.body.message).toBe(unknown.body.message);
+      expect(emails.sendMailPasswordReset).toHaveBeenCalledTimes(1);
+    });
+
+    it('el enlace cambia la contraseña una sola vez; un token inválido responde 400', async () => {
+      const [, , link] = emails.sendMailPasswordReset.mock.calls.at(-1);
+      const token = new URL(link).searchParams.get('token');
+      expect(
+        link.startsWith('http://localhost:5173/reset-password?token='),
+      ).toBe(true);
+      await http
+        .post('/api/auth/reset-password')
+        .send({ token: 'f'.repeat(64), use_new_contrasena: 'Nueva1234*' })
+        .expect(400);
+      await http
+        .post('/api/auth/reset-password')
+        .send({ token, use_new_contrasena: 'corta' })
+        .expect(400);
+      await http
+        .post('/api/auth/reset-password')
+        .send({ token, use_new_contrasena: 'Nueva1234*' })
+        .expect(200);
+      await http
+        .post('/api/auth/reset-password')
+        .send({ token, use_new_contrasena: 'Otra12345*' })
+        .expect(400);
+      await http
+        .post('/api/auth/login')
+        .send({
+          use_correo: 'recep-b@ejemplo.test',
+          use_contrasena: 'Nueva1234*',
+        })
+        .expect(201);
     });
   });
 

@@ -17,6 +17,7 @@ import { ExceptionModule } from './exceptions/exception/exception.module';
 import { PdfModule } from './pdf/pdf.module';
 import { StorageModule } from './storage/storage.module';
 import { AttachedModule } from './attached/attached.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { validateEnv } from './config/env.validation';
 import { buildDataSourceOptions } from './database/database.config';
 
@@ -36,6 +37,7 @@ import { buildDataSourceOptions } from './database/database.config';
       errorMessage: 'Demasiados intentos. Espere un minuto e intente de nuevo',
     }),
     AuthModule,
+    PermissionsModule,
     EmailsModule,
     CustomersModule,
     ExamsModule,

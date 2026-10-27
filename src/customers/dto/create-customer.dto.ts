@@ -65,7 +65,8 @@ export class CreateCustomerDto {
   @IsNotEmpty()
   cus_email: string;
 
+  // obsoleto desde la Fase 3: el laboratorio sale de la sesion (si llega, debe ser el del usuario)
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  laboratory: string;
+  laboratory?: string;
 }

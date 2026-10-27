@@ -1,7 +1,9 @@
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -20,13 +22,24 @@ export class CreateUserDto {
   use_primer_apellido: string;
 
   @IsEmail()
+  @MaxLength(120)
   use_correo: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  role: string; // Debe ser un UUID (id del rol)
+  @MaxLength(20)
+  use_documento?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  laboratory: string; // Debe ser un UUID (id de la empresa)
+  @MaxLength(20)
+  use_telefono?: string;
+
+  @IsUUID()
+  role: string; // id del rol
+
+  // solo el super administrador lo indica; para los demas es el laboratorio de su sesion
+  @IsOptional()
+  @IsUUID()
+  laboratory?: string;
 }

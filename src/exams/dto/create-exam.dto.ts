@@ -22,9 +22,10 @@ export class CreateExamDto {
   @IsNotEmpty()
   exa_price: number;
 
+  // obsoleto desde la Fase 3: el laboratorio sale de la sesion (si llega, debe ser el del usuario)
   @IsUUID()
-  @IsNotEmpty()
-  laboratory: string;
+  @IsOptional()
+  laboratory?: string;
 
   @IsUUID()
   @IsOptional()

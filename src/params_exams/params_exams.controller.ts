@@ -14,12 +14,14 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { User } from '../auth/entities/user.entity';
 import { resolveLaboratoryId } from '../auth/helpers/laboratory-access.helper';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 
 @Auth()
 @Controller('params-exams')
 export class ParamsExamsController {
   constructor(private readonly paramsExamsService: ParamsExamsService) {}
 
+  @RequirePermission('exams:create', 'exams:update')
   @Post()
   create(
     @GetUser() user: User,
@@ -31,6 +33,7 @@ export class ParamsExamsController {
     );
   }
 
+  @RequirePermission('exams:update')
   @Patch(':id')
   update(
     @GetUser() user: User,
@@ -44,6 +47,7 @@ export class ParamsExamsController {
     );
   }
 
+  @RequirePermission('exams:view', 'results:view')
   @Get('exam/:exa_id')
   async findByExamId(
     @GetUser() user: User,

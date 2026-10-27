@@ -6,6 +6,10 @@ import {
 import * as nodemailer from 'nodemailer';
 import { templateEmailWelcom } from './templates/templateEmailWelcom';
 import { templateEmailResult } from './templates/templateEmailResult';
+import {
+  templateEmailPasswordReset,
+  templateEmailTemporaryPassword,
+} from './templates/templateEmailPassword';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 
 @Injectable()
@@ -77,6 +81,56 @@ export class EmailsService {
       );
       throw new InternalServerErrorException(
         'No fue posible enviar el correo con los resultados, intente más tarde',
+      );
+    }
+  }
+
+  /**
+   * Envía el enlace para crear una contraseña nueva (recuperación). Si falla el
+   * envío solo se registra: la respuesta al usuario no revela si el correo existe
+   * @param to correo del usuario
+   * @param nombre nombre del usuario
+   * @param link enlace con el token
+   */
+  async sendMailPasswordReset(to: string, nombre: string, link: string) {
+    try {
+      await this.transporter.sendMail({
+        from: process.env.USER_NOTIFICATION,
+        to,
+        subject: 'Recupera tu contraseña',
+        html: templateEmailPasswordReset(nombre, link),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error enviando correo de recuperación [${error?.code ?? 'sin código'}]`,
+      );
+    }
+  }
+
+  /**
+   * Envía la contraseña temporal que asignó el administrador
+   * @param to correo del usuario
+   * @param nombre nombre del usuario
+   * @param password contraseña temporal
+   */
+  async sendMailTemporaryPassword(
+    to: string,
+    nombre: string,
+    password: string,
+  ) {
+    try {
+      await this.transporter.sendMail({
+        from: process.env.USER_NOTIFICATION,
+        to,
+        subject: 'Tu contraseña fue restablecida',
+        html: templateEmailTemporaryPassword(nombre, to, password),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error enviando contraseña temporal [${error?.code ?? 'sin código'}]`,
+      );
+      throw new InternalServerErrorException(
+        'No fue posible enviar el correo con la contraseña temporal, intente más tarde',
       );
     }
   }

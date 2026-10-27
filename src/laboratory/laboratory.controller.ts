@@ -11,36 +11,33 @@ import { LaboratoryService } from './laboratory.service';
 import { CreateLaboratoryDto } from './dto/create-laboratory.dto';
 import { UpdateLaboratoryDto } from './dto/update-laboratory.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { RequireMenu } from '../auth/decorators/require-menu.decorator';
+import { RequirePermission } from '../permissions/decorators/require-permission.decorator';
 
-// por defecto todo endpoint exige la opcion de menu; cada metodo puede ampliarla
+// modulo global: solo el super administrador tiene estos permisos
 @Auth()
-@RequireMenu('/laboratories')
+@RequirePermission('laboratories:view')
 @Controller('laboratory')
 export class LaboratoryController {
   constructor(private readonly laboratoryService: LaboratoryService) {}
 
   @Post()
-  @RequireMenu('/laboratories')
+  @RequirePermission('laboratories:create')
   create(@Body() createLaboratoryDto: CreateLaboratoryDto) {
     return this.laboratoryService.create(createLaboratoryDto);
   }
 
-  // la pantalla de usuarios tambien lista los laboratorios para filtrar
   @Get()
-  @RequireMenu('/laboratories', '/users')
   findAll() {
     return this.laboratoryService.findAll();
   }
 
   @Get(':id')
-  @RequireMenu('/laboratories')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.laboratoryService.findOne(id);
   }
 
   @Patch(':id')
-  @RequireMenu('/laboratories')
+  @RequirePermission('laboratories:update')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateLaboratoryDto: UpdateLaboratoryDto,
