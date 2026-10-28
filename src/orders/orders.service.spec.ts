@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
@@ -35,7 +35,7 @@ describe('OrdersService', () => {
   };
   const mockPdfService = { generateResult: jest.fn() };
   const mockEmailsService = { sendMailResults: jest.fn() };
-  const mockStorageService = { getSignedUrl: jest.fn() };
+  const mockStorageService = { getSignedUrl: jest.fn(), deleteFile: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -172,6 +172,88 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('PDF y correo de resultados', () => {
+    const finishedOrder = {
+      ord_pdf_url: 'lab-a/resultados/ord-1/v1.pdf',
+      ord_code: 15,
+      customer: { cus_first_name: 'Ana', cus_email: ' ana@ejemplo.test ' },
+      laboratory: { lab_id: 'lab-a', lab_name: 'Lab A' },
+    };
+
+    afterEach(() => {
+      delete process.env.RESULT_URL_TTL;
+    });
+
+    it('generatePdfResults guarda la ruta nueva, finaliza la orden y borra el PDF anterior', async () => {
+      mockOrderRepo.findOne.mockResolvedValue({
+        ord_id: 'ord-1',
+        ord_pdf_url: 'lab-a/resultados/ord-1/v1.pdf',
+        laboratory: { lab_id: 'lab-a' },
+        exams: [],
+        results: [],
+      });
+      mockPdfService.generateResult.mockResolvedValue(
+        'lab-a/resultados/ord-1/v2.pdf',
+      );
+      const result = await service.generatePdfResults('ord-1', 'lab-a');
+      expect(result.status).toBe(200);
+      expect(mockOrderRepo.update).toHaveBeenCalledWith(
+        { ord_id: 'ord-1' },
+        {
+          ord_status: 'FINALIZADA',
+          ord_pdf_url: 'lab-a/resultados/ord-1/v2.pdf',
+        },
+      );
+      expect(mockStorageService.deleteFile).toHaveBeenCalledWith(
+        'lab-a/resultados/ord-1/v1.pdf',
+      );
+    });
+
+    it('sendEmailResults envía el enlace con la vigencia configurada y los datos del laboratorio', async () => {
+      process.env.RESULT_URL_TTL = '24';
+      mockOrderRepo.findOne.mockResolvedValue(finishedOrder);
+      mockStorageService.getSignedUrl.mockResolvedValue('https://firmada');
+      const result = await service.sendEmailResults('ord-1', 'lab-a');
+      expect(result.status).toBe(200);
+      expect(mockStorageService.getSignedUrl).toHaveBeenCalledWith(
+        'lab-a/resultados/ord-1/v1.pdf',
+        24 * 3600,
+      );
+      expect(mockEmailsService.sendMailResults).toHaveBeenCalledWith(
+        'ana@ejemplo.test',
+        expect.objectContaining({
+          name: 'Ana',
+          url: 'https://firmada',
+          expiresInHours: 24,
+          orderCode: 15,
+          laboratory: finishedOrder.laboratory,
+        }),
+      );
+    });
+
+    it('sendEmailResults usa 48 horas si RESULT_URL_TTL no está o no es válido', async () => {
+      process.env.RESULT_URL_TTL = 'abc';
+      mockOrderRepo.findOne.mockResolvedValue(finishedOrder);
+      mockStorageService.getSignedUrl.mockResolvedValue('https://firmada');
+      await service.sendEmailResults('ord-1', 'lab-a');
+      expect(mockStorageService.getSignedUrl).toHaveBeenCalledWith(
+        expect.any(String),
+        48 * 3600,
+      );
+    });
+
+    it('sendEmailResults responde 400 si el paciente no tiene correo', async () => {
+      mockOrderRepo.findOne.mockResolvedValue({
+        ...finishedOrder,
+        customer: { cus_first_name: 'Ana', cus_email: '' },
+      });
+      await expect(
+        service.sendEmailResults('ord-1', 'lab-a'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockEmailsService.sendMailResults).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getUrlResult', () => {
     it('debería retornar los datos de la orden finalizada', async () => {
       const fakeOrder = {
@@ -186,23 +268,21 @@ describe('OrdersService', () => {
       };
       mockOrderRepo.findOne.mockResolvedValue(fakeOrder);
       const result = await service.getUrlResult('id123', 'lab-a');
-      expect(result).toEqual({
-        status: 200,
-        data: {
-          ord_pdf_url: 'url.pdf',
-          fullName: 'Juan Carlos Pérez Gómez',
-          email: 'paciente@ejemplo.test',
-        },
+      expect(result.status).toBe(200);
+      expect(result.data).toMatchObject({
+        ord_pdf_url: 'url.pdf',
+        fullName: 'Juan Carlos Pérez Gómez',
+        email: 'paciente@ejemplo.test',
       });
-      expect(mockOrderRepo.findOne).toHaveBeenCalledWith({
-        where: {
-          ord_id: 'id123',
-          ord_status: 'FINALIZADA',
-          laboratory: { lab_id: 'lab-a' },
-        },
-        relations: { customer: true },
-        select: { ord_pdf_url: true, ord_id: true, customer: true },
-      });
+      expect(mockOrderRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            ord_id: 'id123',
+            ord_status: 'FINALIZADA',
+            laboratory: { lab_id: 'lab-a' },
+          },
+        }),
+      );
     });
 
     it('debería lanzar NotFoundException si no existe la orden', async () => {

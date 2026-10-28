@@ -1,330 +1,180 @@
-// ...existing code...
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { StorageService } from '../storage/storage.service';
+import { PdfRendererService } from './engine/pdf-renderer.service';
+import {
+  CompiledTemplate,
+  TemplateResolverService,
+} from './engine/template-resolver.service';
+import { splitLayout } from './engine/template-engine';
+import {
+  buildResultReport,
+  ReportImages,
+  ResultReport,
+} from './report/result-report.builder';
+
+// logos y firmas se reutilizan unos minutos entre PDF (sus rutas no cambian de contenido)
+const IMAGE_CACHE_TTL_MS = 10 * 60_000;
+const MAX_CACHED_IMAGES = 100;
+
+/**
+ * Tipo de imagen según sus primeros bytes (no según la extensión del archivo)
+ */
+function imageMime(buffer: Buffer): string | null {
+  if (buffer.length < 12) return null;
+  if (buffer.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])))
+    return 'image/png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
+    return 'image/jpeg';
+  if (buffer.subarray(0, 4).toString('ascii') === 'GIF8') return 'image/gif';
+  if (
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  )
+    return 'image/webp';
+  return null;
+}
 
 @Injectable()
 export class PdfService {
+  private readonly logger = new Logger('PdfService');
+  private readonly imageCache = new Map<
+    string,
+    { value: string | null; expires: number }
+  >();
+
   constructor(
     private readonly storageService: StorageService,
     private readonly exceptionService: ExceptionService,
+    private readonly renderer: PdfRendererService,
+    private readonly templates: TemplateResolverService,
   ) {}
 
-  async generateExamResultsPdf(orderResults: any): Promise<Buffer> {
-    // 1. Cargar la plantilla HTML
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const Handlebars = (await import('handlebars')).default;
-    const puppeteer = (await import('puppeteer')).default;
-
-    // Registrar helpers para startsWith y substring
-    if (!Handlebars.helpers.startsWith) {
-      Handlebars.registerHelper(
-        'startsWith',
-        function (str: string, prefix: string) {
-          return typeof str === 'string' && str.startsWith(prefix);
-        },
-      );
-    }
-    if (!Handlebars.helpers.substring) {
-      Handlebars.registerHelper(
-        'substring',
-        function (str: string, start: number) {
-          return typeof str === 'string' ? str.substring(start) : str;
-        },
-      );
-    }
-    if (!Handlebars.helpers.eq) {
-      Handlebars.registerHelper('eq', function (a: any, b: any) {
-        return a === b;
-      });
-    }
-    if (!Handlebars.helpers.or) {
-      Handlebars.registerHelper('or', function (...values: any[]) {
-        // el ultimo argumento son las opciones de Handlebars
-        const args = values.slice(0, -1);
-        return args.some(Boolean);
-      });
-    }
-    if (!Handlebars.helpers.and) {
-      Handlebars.registerHelper('and', function (...values: any[]) {
-        // el ultimo argumento son las opciones de Handlebars
-        const args = values.slice(0, -1);
-        return args.every(Boolean);
-      });
-    }
-    if (!Handlebars.helpers.not) {
-      Handlebars.registerHelper('not', function (value: any) {
-        return !value;
-      });
-    }
-    if (!Handlebars.helpers.contains) {
-      Handlebars.registerHelper(
-        'contains',
-        function (str: string, substr: string) {
-          return (
-            typeof str === 'string' &&
-            str.toLowerCase().includes(substr.toLowerCase())
-          );
-        },
-      );
-    }
-    if (!Handlebars.helpers.toLowerCase) {
-      Handlebars.registerHelper('toLowerCase', function (str: string) {
-        return typeof str === 'string' ? str.toLowerCase() : str;
-      });
-    }
-
-    // Usar ruta relativa a __dirname para producción y src para desarrollo
-    let templateHtml = '';
-    let templatePath = '';
-    if (__dirname.includes('dist')) {
-      templatePath = path.resolve(__dirname, './templates/result-header.html');
-    } else {
-      templatePath = path.resolve(
-        process.cwd(),
-        'src/pdf/templates/result-header.html',
-      );
-    }
-    try {
-      templateHtml = await fs.readFile(templatePath, 'utf8');
-    } catch {
-      throw new Error(
-        'No se encontró la plantilla result-header.html en: ' + templatePath,
-      );
-    }
-
-    // 2. Prepara los datos para la plantilla
-    let edad = '';
-    const birth = orderResults.customer?.cus_birthdate
-      ? new Date(orderResults.customer.cus_birthdate)
-      : null;
-    if (birth) {
-      const now = new Date();
-      let years = now.getFullYear() - birth.getFullYear();
-      let months = now.getMonth() - birth.getMonth();
-      let days = now.getDate() - birth.getDate();
-      if (days < 0) {
-        months--;
-        days += 30;
-      }
-      if (months < 0) {
-        years--;
-        months += 12;
-      }
-      edad = `${years} años, ${months} meses, ${days} días`;
-    }
-    const fechaOriginal = new Date(orderResults.ord_created_at);
-    const fechaIngreso = fechaOriginal.toLocaleString('es-CO', {
-      timeZone: 'America/Bogota',
-    });
-    const fechaGeneracion = new Date().toLocaleString('es-CO', {
-      timeZone: 'America/Bogota',
-    });
-
-    // 2.1. Convertir logo a base64 si existe
-    let labLogoBase64 = '';
-    if (orderResults.laboratory?.lab_logo) {
-      try {
-        const logoBuffer = await this.storageService.getPrivateImageBuffer(
-          `logos_empresa/${orderResults.laboratory.lab_logo}`,
-        );
-        const ext =
-          orderResults.laboratory.lab_logo.split('.').pop()?.toLowerCase() ||
-          'png';
-        labLogoBase64 = `data:image/${ext};base64,${logoBuffer.toString('base64')}`;
-      } catch {
-        labLogoBase64 = '';
-      }
-    }
-
-    const attachedFiles = Array.isArray(orderResults.attachedFiles)
-      ? orderResults.attachedFiles
-      : [];
-    const hemogramaImages: string[] = [];
-    for (const attached of attachedFiles) {
-      let buffer = null;
-      let ext = '';
-      try {
-        buffer = await this.storageService.getPrivateImageBuffer(
-          attached.att_file_url,
-        );
-        ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
-      } catch {
-        buffer = null;
-        ext = attached.att_file_url.split('.').pop()?.toLowerCase() || '';
-      }
-      // Solo agregar si es imagen y buffer válido
-      if (
-        buffer &&
-        ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)
-      ) {
-        hemogramaImages.push(
-          `data:image/${ext};base64,${buffer.toString('base64')}`,
-        );
-      }
-    }
-
-    let labSignatureBase64 = '';
-    if (orderResults.laboratory?.lab_signature) {
-      try {
-        const bufferFirma = await this.storageService.getPrivateImageBuffer(
-          `logos_empresa/${orderResults.laboratory.lab_signature}`,
-        );
-        const extFirma =
-          orderResults.laboratory.lab_signature
-            .split('.')
-            .pop()
-            ?.toLowerCase() || 'png';
-        labSignatureBase64 = `data:image/${extFirma};base64,${bufferFirma.toString('base64')}`;
-      } catch {
-        labSignatureBase64 = '';
-      }
-    }
-
-    // 2.2. Agrupar y deduplicar clasificaciones de exámenes
-    // Mapeo de nombres de clasificación
-    const classificationNames: Record<number, string> = {
-      '1': 'HEMATOLOGIA',
-      '2': 'HEMATOLOGIA',
-      '3': 'QUIMICA',
-      '4': 'INMUNOLOGIA',
-      '5': 'MICROSCOPIA',
-      '6': 'MACROSCOPIA',
-      '7': 'MICROBIOLOGIA',
-      '8': 'HORMONAS',
-    };
-    const uniqueClassifications: any[] = [];
-    if (Array.isArray(orderResults.exams)) {
-      const seen = new Set();
-      for (const exam of orderResults.exams) {
-        if (!seen.has(exam.exa_classification)) {
-          seen.add(exam.exa_classification);
-          const exams = orderResults.exams
-            .filter(
-              (e: any) => e.exa_classification === exam.exa_classification,
-            )
-            .map((ex: any) => {
-              const sortedParams = Array.isArray(ex.parameters)
-                ? [...ex.parameters].sort(
-                    (a, b) => (a.par_order ?? 0) - (b.par_order ?? 0),
-                  )
-                : ex.parameters;
-              // Extraer observaciones únicas de los parámetros
-              const uniqueObservations = [
-                ...new Set(
-                  (Array.isArray(sortedParams) ? sortedParams : [])
-                    .map((p: any) => p.observation)
-                    .filter((obs: any) => !!obs && obs.trim() !== ''),
-                ),
-              ];
-              return {
-                ...ex,
-                parameters: sortedParams,
-                uniqueObservations,
-              };
-            });
-          // Si es hemograma, agrega las imágenes
-          const isHemograma = [1].includes(Number(exam.exa_classification));
-          uniqueClassifications.push({
-            classification_id: exam.exa_classification,
-            classification:
-              classificationNames[exam.exa_classification] ||
-              exam.exa_classification,
-            exams,
-            images: isHemograma ? hemogramaImages : undefined,
-          });
-        }
-      }
-      // Ordenar de menor a mayor por classification_id
-      uniqueClassifications.sort(
-        (a, b) => a.classification_id - b.classification_id,
-      );
-    }
-
-    // 3. Renderizar HTML con Handlebars
-    const template = Handlebars.compile(templateHtml);
-    const html = template({
-      ...orderResults,
-      cus_full_name:
-        `${orderResults.customer?.cus_first_name || ''} ${orderResults.customer?.cus_second_name || ''} ${orderResults.customer?.cus_first_lastname || ''} ${orderResults.customer?.cus_second_lastname || ''}`
-          .replace(/\s+/g, ' ')
-          .trim(),
-      cus_document_number: orderResults.customer?.cus_document_number || '',
-      cus_age: edad,
-      cus_gender: orderResults.customer?.cus_gender || '',
-      ord_code: orderResults.ord_code || '',
-      ord_created_at: fechaIngreso,
-      fecha_generacion: fechaGeneracion,
-      page_number: 1, // Puedes ajustar la paginación si lo necesitas
-      lab_logo: labLogoBase64,
-      lab_name: orderResults.laboratory?.lab_name || '',
-      lab_address: orderResults.laboratory?.lab_address || '',
-      lab_phone: orderResults.laboratory?.lab_phone || '',
-      lab_email: orderResults.laboratory?.lab_email || '',
-      lab_signer_name: orderResults.laboratory?.lab_legal_representative || '',
-      lab_signer_role: orderResults.laboratory?.lab_signer_role || '',
-      lab_signature_base64: labSignatureBase64,
-      uniqueClassifications,
-      labSignatureBase64,
-      edad,
-      fechaIngreso,
-      fechaGeneracion,
-    });
-
-    // obtener encabezado para paginas
-    const templateHeaderHtml = this.getReportHeaderHtml(
-      orderResults,
-      edad,
-      fechaIngreso,
-      fechaGeneracion,
-      labLogoBase64,
-    );
-    // 4. Generar PDF con Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox'],
-    });
-    const page = await browser.newPage();
-    // todo el contenido va embebido (imagenes en base64): basta con esperar el evento load
-    await page.setContent(html, { waitUntil: 'load' });
-    const pdfBuffer = await page.pdf({
-      format: 'letter',
-      printBackground: true,
-      margin: { top: '295px', bottom: '40px', left: '40px', right: '40px' },
-      displayHeaderFooter: true,
-      headerTemplate: templateHeaderHtml,
-      footerTemplate: `<div></div>`,
-    });
-    await browser.close();
-    // Asegura que el resultado sea un Buffer (Node.js)
-    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
-  }
-
   /**
-   * Metodo para generar el PDF de resultados de exámenes y subirlo al almacenamiento
-   * @param orderResults datos de los resultados
-   * @returns url del archivo PDF generado
+   * Genera el PDF de resultados de una orden con la plantilla de su laboratorio y lo sube
+   * a `<lab_id>/resultados/<ord_id>/<uuid>.pdf` (cada versión con su propio nombre)
+   * @param orderResults orden con resultados (OrdersService.findOrderWithResults)
+   * @returns ruta del PDF en el bucket
    */
   async generateResult(orderResults: any): Promise<string> {
     try {
-      // ontener el buffer del PDF generado
-      const pdfBuffer = await this.generateExamResultsPdf(orderResults);
-
-      //agregamos el nombre del archivo y lo subimos al almacenamiento
-      const fileName = `laboartorio=${orderResults.laboratory.lab_nit}/${orderResults.customer.cus_document_number}/resultados-${orderResults.ord_id}.pdf`;
-
-      // Subir el buffer del PDF al servicio de almacenamiento
-      const urlResult = await this.storageService.uploadFile(
-        pdfBuffer,
-        fileName,
+      const lab_id = orderResults.laboratory.lab_id;
+      const [images, template] = await Promise.all([
+        this.loadImages(orderResults),
+        this.templates.forLaboratory(lab_id),
+      ]);
+      const pdfBuffer = await this.renderReport(
+        template,
+        buildResultReport(orderResults, images),
       );
 
-      return urlResult;
+      const fileName = `${lab_id}/resultados/${orderResults.ord_id}/${randomUUID()}.pdf`;
+      return await this.storageService.uploadFile(
+        pdfBuffer,
+        fileName,
+        'application/pdf',
+        false,
+      );
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }
+  }
+
+  /**
+   * Imprime los datos de un reporte con una plantilla
+   * @param template plantilla compilada
+   * @param report datos del reporte
+   * @returns PDF
+   */
+  async renderReport(
+    template: CompiledTemplate,
+    report: ResultReport,
+  ): Promise<Buffer> {
+    return this.renderer.render(splitLayout(template(report)));
+  }
+
+  /**
+   * Logo de un laboratorio como data: (para la vista previa de plantillas)
+   * @param lab_logo nombre del archivo del logo
+   */
+  async labLogo(lab_logo?: string | null): Promise<string | null> {
+    return lab_logo
+      ? this.imageDataUri(`logos_empresa/${lab_logo}`, true)
+      : null;
+  }
+
+  /**
+   * Descarga en paralelo el logo, la firma del laboratorio, las firmas de los
+   * profesionales y las imágenes adjuntas a la orden
+   */
+  private async loadImages(order: any): Promise<ReportImages> {
+    const lab = order.laboratory ?? {};
+    const signaturePaths = [
+      ...new Set<string>(
+        (order.exams ?? [])
+          .map((exam: any) => exam.signer?.firma_path)
+          .filter(Boolean),
+      ),
+    ];
+    const attachedPaths: string[] = (order.attachedFiles ?? [])
+      .map((attached: any) => attached.att_file_url)
+      .filter(Boolean);
+
+    const [logo, labSignature, signatures, attachments] = await Promise.all([
+      this.labLogo(lab.lab_logo),
+      lab.lab_signature
+        ? this.imageDataUri(`logos_empresa/${lab.lab_signature}`, true)
+        : null,
+      Promise.all(
+        signaturePaths.map(async (path) => [
+          path,
+          await this.imageDataUri(path, true),
+        ]),
+      ),
+      Promise.all(attachedPaths.map((path) => this.imageDataUri(path, false))),
+    ]);
+
+    return {
+      logo,
+      labSignature,
+      signatures: new Map(signatures as [string, string | null][]),
+      // los adjuntos que no son imagen (PDF) no se incrustan
+      attachments: attachments.filter(Boolean),
+    };
+  }
+
+  /**
+   * Imagen del bucket como data: (null si no existe o no es una imagen)
+   * @param path ruta en el bucket
+   * @param useCache reutilizarla unos minutos (logos y firmas)
+   */
+  private async imageDataUri(
+    path: string,
+    useCache: boolean,
+  ): Promise<string | null> {
+    const cached = useCache ? this.imageCache.get(path) : undefined;
+    if (cached && cached.expires > Date.now()) return cached.value;
+
+    let value: string | null = null;
+    try {
+      const buffer = await this.storageService.getPrivateImageBuffer(path);
+      const mime = imageMime(buffer);
+      value = mime ? `data:${mime};base64,${buffer.toString('base64')}` : null;
+    } catch {
+      // sin la imagen el PDF se genera igual
+      this.logger.warn('No se pudo descargar una imagen para el PDF');
+    }
+
+    if (useCache) {
+      if (this.imageCache.size >= MAX_CACHED_IMAGES)
+        this.imageCache.delete(this.imageCache.keys().next().value);
+      this.imageCache.set(path, {
+        value,
+        expires: Date.now() + IMAGE_CACHE_TTL_MS,
+      });
+    }
+    return value;
   }
 
   /**
@@ -353,109 +203,5 @@ export class PdfService {
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }
-  }
-
-  /**
-   * Devuelve el header HTML para el reporte de resultados de laboratorio
-   * @param orderResults objeto completo de la orden
-   * @param edad string de edad calculada
-   * @param fechaIngreso string de fecha de ingreso
-   * @param fechaGeneracion string de fecha de generación
-   * @param labLogoBase64 string base64 del logo
-   * @returns string HTML del header
-   */
-  getReportHeaderHtml(
-    orderResults: any,
-    edad: string,
-    fechaIngreso: string,
-    fechaGeneracion: string,
-    labLogoBase64: string,
-  ): string {
-    const lab = orderResults.laboratory || {};
-    const customer = orderResults.customer || {};
-    return `
-      <style>
-        .header-outer {
-          width: 80%;
-          box-sizing: border-box;
-          margin: 0 auto;
-          padding-left: 0;
-          padding-right: 0;
-        }
-        .header {
-          font-family: 'Segoe UI', sans-serif;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          border-bottom: 2px solid #3498db;
-          padding-bottom: 10px;
-          height: 100px;
-        }
-        .logo {
-          height: 100px;
-          width: 150px;
-          object-fit: contain;
-        }
-        .lab-info {
-          text-align: right;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-        .titulo {
-          text-align: center;
-          font-size: 18px;
-          margin-top: 20px;
-          margin-bottom: 20px;
-          color: #2980b9;
-        }
-        .info-paciente {
-          font-size: 12px;
-          background: #90c3f9;
-          padding: 12px;
-          border-radius: 8px;
-          border-top: 2px;
-          margin-bottom: 25px;
-        }
-        .info-paciente-flex {
-          display: flex;
-          flex-direction: row;
-          gap: 32px;
-          justify-content: flex-start;
-        }
-        .info-col {
-          flex: 1 1 0;
-          min-width: 180px;
-        }
-      </style>
-      <div class="header-outer">
-        <div class="header">
-          <img src="${labLogoBase64}" class="logo" />
-          <div class="lab-info">
-            <strong>${lab.lab_name}</strong><br />        
-            Dir: ${lab.lab_address}<br />
-            Tel: ${lab.lab_phone}<br />
-            Email: ${lab.lab_email}
-          </div>
-        </div>
-        <div class="info-paciente">
-          <div class="info-paciente-flex">
-            <div class="info-col">
-              <strong>Paciente:</strong> ${customer.cus_first_name} ${customer.cus_second_name} ${customer.cus_first_lastname} ${customer.cus_second_lastname}<br />
-              <strong>Documento:</strong> ${customer.cus_document_type} ${customer.cus_document_number}<br />
-              <strong>Fecha de nacimiento:</strong> ${customer.cus_birthdate}<br />
-              <strong>Edad:</strong> ${edad}<br />
-              <strong>Genero:</strong> ${customer.cus_gender}<br />
-            </div>
-            <div class="info-col">
-              <strong>Teléfono:</strong> ${customer.cus_phone}<br />
-              <strong>Orden:</strong> ${orderResults.ord_code} <br />
-              <strong>Fecha de ingreso:</strong> ${fechaIngreso}<br />
-              <strong>Fecha de generación:</strong> ${fechaGeneracion}<br />
-            </div>
-          </div>
-        </div>
-        <div class="titulo">Resultados de Laboratorio</div>
-      </div>
-    `;
   }
 }

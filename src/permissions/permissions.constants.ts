@@ -17,6 +17,7 @@ export const MODULES = {
   roles: 'roles',
   menus: 'menus',
   laboratories: 'laboratories',
+  pdf_templates: 'pdf_templates',
 } as const;
 export type ModuleSlug = (typeof MODULES)[keyof typeof MODULES];
 

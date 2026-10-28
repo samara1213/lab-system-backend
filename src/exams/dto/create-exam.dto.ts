@@ -31,8 +31,14 @@ export class CreateExamDto {
   @IsOptional()
   alliance?: string;
 
+  // obsoleto desde la Fase 5 (código numérico): usar "classification"; se quita en la Fase 7
   @IsString()
   @IsOptional()
   @MaxLength(100)
   exa_classification?: string;
+
+  // clasificación del sistema o del laboratorio del usuario; null la quita
+  @IsUUID()
+  @IsOptional()
+  classification?: string | null;
 }

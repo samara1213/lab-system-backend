@@ -14,6 +14,7 @@ import { Alliance } from '../../alliance/entities/alliance.entity';
 import { ParamsExam } from '../../params_exams/entities/params_exam.entity';
 import { Order } from '../../orders/entities/order.entity';
 import { decimalTransformer } from '../../common/transformers/decimal.transformer';
+import { ExamClassification } from '../../exam_classifications/entities/exam_classification.entity';
 
 @Entity('exams')
 export class Exam {
@@ -33,8 +34,14 @@ export class Exam {
   })
   exa_price: number;
 
+  // código numérico anterior a la Fase 5 ("1" a "8"); se reemplaza por "classification" y se quita en la Fase 7
   @Column('text', { nullable: true })
   exa_classification: string;
+
+  // sección del PDF donde va el examen (sin clasificación: "Otros exámenes", al final)
+  @ManyToOne(() => ExamClassification, { nullable: true, onDelete: 'SET NULL' })
+  @Index()
+  classification: ExamClassification | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   exa_created: Date;

@@ -1350,6 +1350,263 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
     });
   });
 
+  describe('Fase 5: clasificaciones de exámenes', () => {
+    let ownId: string;
+
+    it('cada laboratorio ve las del sistema y las suyas; solo edita las suyas', async () => {
+      const list = await http
+        .get('/api/exam-classifications')
+        .set(as('recep-a'))
+        .expect(200);
+      const system = list.body.data.filter((c: any) => !c.laboratory);
+      expect(system).toHaveLength(8);
+      expect(system.every((c: any) => c.editable === false)).toBe(true);
+
+      await http
+        .post('/api/exam-classifications')
+        .set(as('recep-a'))
+        .send({ cla_name: 'Serología A', cla_order: 9 })
+        .expect(201);
+      ownId = (
+        await http.get('/api/exam-classifications').set(as('recep-a'))
+      ).body.data.find((c: any) => c.cla_name === 'Serología A').cla_id;
+
+      const listB = await http
+        .get('/api/exam-classifications')
+        .set(as('recep-b'))
+        .expect(200);
+      expect(listB.body.data.some((c: any) => c.cla_id === ownId)).toBe(false);
+
+      await http
+        .patch(`/api/exam-classifications/${system[0].cla_id}`)
+        .set(as('recep-a'))
+        .send({ cla_name: 'X' })
+        .expect(403);
+      await http
+        .patch(`/api/exam-classifications/${ownId}`)
+        .set(as('recep-b'))
+        .send({ cla_name: 'X' })
+        .expect(404);
+      await http
+        .patch(`/api/exam-classifications/${ownId}`)
+        .set(as('recep-a'))
+        .send({ cla_show_images: true })
+        .expect(200);
+      // sin permiso sobre exámenes
+      await http
+        .get('/api/exam-classifications')
+        .set(as('consulta-a'))
+        .expect(403);
+    });
+
+    it('un examen solo usa clasificaciones del sistema o de su laboratorio', async () => {
+      await http
+        .patch(`/api/exams/${data.B.exa_id}`)
+        .set(as('recep-b'))
+        .send({ classification: ownId })
+        .expect(404);
+      await http
+        .patch(`/api/exams/${data.A.exa_id}`)
+        .set(as('recep-a'))
+        .send({ classification: ownId })
+        .expect(200);
+      const exam = await http
+        .get(`/api/exams/${data.A.exa_id}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(exam.body.data.classification.cla_name).toBe('Serología A');
+    });
+  });
+
+  describe('Fase 5: plantillas PDF, PDF de resultados y correo', () => {
+    // el PDF llega como binario
+    const binary = (
+      res: any,
+      done: (err: Error | null, body: Buffer) => void,
+    ) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => done(null, Buffer.concat(chunks)));
+    };
+    const template = (body: string) =>
+      Buffer.from(
+        `<html><head></head><body><!-- pdf:header --><div>{{laboratorio.nombre}}</div><!-- /pdf:header -->${body}</body></html>`,
+      );
+    let tplId: string;
+    let ordId: string;
+
+    beforeAll(async () => {
+      // la orden de la prueba de resultados en lote (laboratorio A, con resultados)
+      const list = await http
+        .post('/api/orders/laboratory')
+        .set(as('recep-a'))
+        .send({ ord_status: 'PENDIENTE PDF' });
+      ordId = list.body.data[0].ord_id;
+    });
+
+    it('solo el super administrador gestiona plantillas', async () => {
+      await http.get('/api/pdf-templates').set(as('recep-a')).expect(403);
+      await http.get('/api/pdf-templates').set(as('labadmin-a')).expect(403);
+      const base = await http
+        .get('/api/pdf-templates/default')
+        .set(as('admin-a'))
+        .expect(200);
+      expect(base.body.data.tpl_content).toContain('{{#each clasificaciones}}');
+      expect(base.body.data.helpers).toContain('default');
+    });
+
+    it('rechaza plantillas inseguras con la lista de errores', async () => {
+      const res = await http
+        .post('/api/pdf-templates')
+        .set(as('admin-a'))
+        .field('tpl_name', 'Insegura')
+        .attach(
+          'file',
+          template('{{{paciente.nombre}}}<script>x()</script>'),
+          'insegura.html',
+        )
+        .expect(400);
+      expect(res.body.message.join(' ')).toMatch(
+        /sin escapar.*JavaScript|JavaScript.*sin escapar/,
+      );
+      await http
+        .post('/api/pdf-templates')
+        .set(as('admin-a'))
+        .field('tpl_name', 'Texto')
+        .attach('file', Buffer.from('hola'), 'plantilla.txt')
+        .expect(400);
+    });
+
+    it('vista previa de un archivo, guardar, activar y ver la guardada', async () => {
+      const preview = await http
+        .post('/api/pdf-templates/preview')
+        .set(as('admin-a'))
+        .field('laboratory', data.A.lab_id)
+        .attach('file', template('<p>{{paciente.nombre}}</p>'), 'a.html')
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
+      expect(preview.headers['content-type']).toBe('application/pdf');
+      expect(preview.body.subarray(0, 4).toString()).toBe('%PDF');
+
+      const created = await http
+        .post('/api/pdf-templates')
+        .set(as('admin-a'))
+        .field('tpl_name', 'Plantilla A')
+        .field('laboratory', data.A.lab_id)
+        .attach(
+          'file',
+          template(
+            '{{#each clasificaciones}}<h2>{{nombre}}</h2>{{#each examenes}}<p>{{nombre}} {{firmante.nombre}}</p>{{/each}}{{/each}}',
+          ),
+          'a.html',
+        )
+        .expect(201);
+      tplId = created.body.data.tpl_id;
+
+      await http
+        .patch(`/api/pdf-templates/${tplId}/activate`)
+        .set(as('admin-a'))
+        .expect(200);
+      const list = await http
+        .get(`/api/pdf-templates?laboratory=${data.A.lab_id}`)
+        .set(as('admin-a'))
+        .expect(200);
+      expect(list.body.data).toEqual([
+        expect.objectContaining({
+          tpl_id: tplId,
+          tpl_active: true,
+          laboratory: { lab_id: data.A.lab_id, lab_name: expect.any(String) },
+          created_by: 'admin-a Prueba',
+        }),
+      ]);
+      expect(list.body.data[0].tpl_content).toBeUndefined();
+
+      const saved = await http
+        .get(`/api/pdf-templates/${tplId}/preview`)
+        .set(as('admin-a'))
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
+      expect(saved.body.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('genera el PDF con un nombre nuevo por versión y borra el anterior', async () => {
+      storage.uploadFile.mockClear();
+      storage.deleteFile.mockClear();
+      await http
+        .get(`/api/orders/generates/results/${ordId}`)
+        .set(as('recep-a'))
+        .expect(200);
+      const [, firstPath, contentType, upsert] =
+        storage.uploadFile.mock.calls[0];
+      expect(firstPath).toMatch(
+        new RegExp(
+          `^${data.A.lab_id}/resultados/${ordId}/[0-9a-f-]{36}\\.pdf$`,
+        ),
+      );
+      expect(contentType).toBe('application/pdf');
+      expect(upsert).toBe(false);
+      const order = await http.get(`/api/orders/${ordId}`).set(as('recep-a'));
+      expect(order.body.data.ord_status).toBe('FINALIZADA');
+
+      await http
+        .get(`/api/orders/generates/results/${ordId}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(storage.uploadFile.mock.calls[1][1]).not.toBe(firstPath);
+      expect(storage.deleteFile).toHaveBeenCalledWith(firstPath);
+    });
+
+    it('el correo exige el correo del paciente y lleva la vigencia del enlace', async () => {
+      emails.sendMailResults.mockClear();
+      const setEmail = (email: string) =>
+        app
+          .get(DataSource)
+          .query(
+            `UPDATE "${process.env.DB_SCHEMA}"."customers" SET "cus_email" = $1 WHERE "cus_id" = $2`,
+            [email, data.A.cus_id],
+          );
+      await setEmail('');
+      await http
+        .get(`/api/orders/emails/${ordId}`)
+        .set(as('recep-a'))
+        .expect(400);
+      expect(emails.sendMailResults).not.toHaveBeenCalled();
+      await setEmail('paciente-a@ejemplo.test');
+      await http
+        .get(`/api/orders/emails/${ordId}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(storage.getSignedUrl).toHaveBeenLastCalledWith(
+        expect.stringMatching(`^${data.A.lab_id}/resultados/`),
+        48 * 3600,
+      );
+      expect(emails.sendMailResults).toHaveBeenCalledWith(
+        'paciente-a@ejemplo.test',
+        expect.objectContaining({
+          expiresInHours: 48,
+          laboratory: expect.objectContaining({ lab_id: data.A.lab_id }),
+        }),
+      );
+    });
+
+    it('no elimina la plantilla activa; desactivada sí', async () => {
+      await http
+        .delete(`/api/pdf-templates/${tplId}`)
+        .set(as('admin-a'))
+        .expect(400);
+      await http
+        .patch(`/api/pdf-templates/${tplId}/deactivate`)
+        .set(as('admin-a'))
+        .expect(200);
+      await http
+        .delete(`/api/pdf-templates/${tplId}`)
+        .set(as('admin-a'))
+        .expect(200);
+    });
+  });
+
   describe('cabeceras HTTP y CORS', () => {
     it('envía cabeceras de helmet y CORS solo para el frontend', async () => {
       const ok = await http

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
@@ -15,6 +19,16 @@ import { ExceptionService } from '../exceptions/exception/exception.service';
 import { PdfService } from '../pdf/pdf.service';
 import { EmailsService } from '../emails/emails.service';
 import { StorageService } from '../storage/storage.service';
+
+/**
+ * Horas de validez del enlace del correo de resultados (RESULT_URL_TTL; 48 por defecto, máximo 168)
+ */
+const resultUrlTtlHours = () => {
+  const hours = Number(process.env.RESULT_URL_TTL);
+  return Number.isFinite(hours) && hours >= 1
+    ? Math.min(Math.floor(hours), 168)
+    : 48;
+};
 
 @Injectable()
 export class OrdersService {
@@ -340,16 +354,20 @@ export class OrdersService {
   async generatePdfResults(ord_id: string, lab_id: string) {
     try {
       const { data } = await this.findOrderWithResults(ord_id, lab_id); // Obtenemos la orden con resultados
+      const previousPdf = data.ord_pdf_url;
 
-      // Generar PDF de resultados ontenemos la url
-      const urlResult = await this.pdfService.generateResult(data); // Generar PDF de resultados (opcional)
+      // cada PDF queda con un nombre nuevo en el bucket
+      const urlResult = await this.pdfService.generateResult(data);
 
-      // Actualizar la orden con la URL y el estado
-      data.ord_status = 'FINALIZADA';
-      data.ord_pdf_url = urlResult;
+      // solo se actualizan la ruta y el estado (sin volver a guardar exámenes ni resultados)
+      await this.orderRepository.update(
+        { ord_id },
+        { ord_status: 'FINALIZADA', ord_pdf_url: urlResult },
+      );
 
-      // actualizamos en la tabla de ordenes la url del pdf
-      await this.orderRepository.save(data);
+      // el PDF anterior ya no se usa
+      if (previousPdf && previousPdf !== urlResult)
+        await this.storageService.deleteFile(previousPdf);
 
       return {
         status: 200,
@@ -396,6 +414,8 @@ export class OrdersService {
 
           exams: {
             parameters: true,
+            // sección del PDF
+            classification: true,
           },
 
           results: {
@@ -438,11 +458,19 @@ export class OrdersService {
         },
         relations: {
           customer: true,
+          laboratory: true,
         },
         select: {
           ord_pdf_url: true,
           ord_id: true,
+          ord_code: true,
           customer: true,
+          laboratory: {
+            lab_id: true,
+            lab_name: true,
+            lab_phone: true,
+            lab_email: true,
+          },
         },
       });
 
@@ -462,6 +490,8 @@ export class OrdersService {
             .replace(/\s+/g, ' ')
             .trim(),
           email: order.customer?.cus_email ?? '',
+          ord_code: order.ord_code,
+          laboratory: order.laboratory,
         },
       };
     } catch (error) {
@@ -478,19 +508,26 @@ export class OrdersService {
   async sendEmailResults(ord_id: string, lab_id: string) {
     try {
       // Obtenemos los datos d ela orden para enviar el correo
-      const dataResult = await this.getUrlResult(ord_id, lab_id);
+      const { data } = await this.getUrlResult(ord_id, lab_id);
+      if (!data.email?.trim())
+        throw new BadRequestException(
+          'El paciente no tiene correo registrado. Agréguelo en Pacientes y vuelva a enviar',
+        );
 
-      // ontnemos la url prefirmada del PDF
+      // el enlace del correo dura más que el de ver/imprimir (RESULT_URL_TTL, en horas)
+      const ttlHours = resultUrlTtlHours();
       const urlResult = await this.storageService.getSignedUrl(
-        dataResult.data.ord_pdf_url,
+        data.ord_pdf_url,
+        ttlHours * 3600,
       );
 
-      // enviamos el correo con los resultados
-      await this.emailsService.sendMailResults(
-        dataResult.data.email,
-        dataResult.data.fullName,
-        urlResult,
-      );
+      await this.emailsService.sendMailResults(data.email.trim(), {
+        name: data.fullName,
+        url: urlResult,
+        expiresInHours: ttlHours,
+        orderCode: data.ord_code,
+        laboratory: data.laboratory,
+      });
 
       return {
         status: 200,

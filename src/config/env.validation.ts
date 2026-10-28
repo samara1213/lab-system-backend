@@ -82,6 +82,13 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   TRUST_PROXY?: string;
+
+  // horas de validez del enlace del correo de resultados
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(168)
+  RESULT_URL_TTL?: number;
 }
 
 /**

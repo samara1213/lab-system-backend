@@ -1,89 +1,66 @@
-export const templateEmailResult = (urlResult: string, name: string) => {
+import { escapeHtml } from './templateEmailPassword';
+
+export interface ResultEmailData {
+  // nombre del paciente
+  name: string;
+  // URL firmada del PDF
+  url: string;
+  expiresInHours: number;
+  orderCode?: number | string;
+  laboratory?: {
+    lab_name?: string;
+    lab_phone?: string;
+    lab_email?: string;
+  };
+}
+
+const validity = (hours: number) =>
+  hours % 24 === 0
+    ? `${hours / 24} ${hours === 24 ? 'día' : 'días'}`
+    : `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+
+/**
+ * Correo con el enlace al PDF de resultados (todos los textos escapados)
+ */
+export const templateEmailResult = (data: ResultEmailData) => {
+  const lab = data.laboratory ?? {};
+  const labName = escapeHtml(lab.lab_name || 'Laboratorio clínico');
+  const contact = [
+    lab.lab_phone && `Tel. ${escapeHtml(lab.lab_phone)}`,
+    lab.lab_email && escapeHtml(lab.lab_email),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8" />
-        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Entrega de resultados</title>
-        <style>
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 0;
-            }
-            .container {
-                width: 100%;
-                max-width: 600px;
-                margin: 40px auto;
-                background-color: #ffffff;
-                padding: 30px;
-                border-radius: 12px;
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-            }
-            .header {
-                text-align: center;
-                background-color: #0046be;
-                color: #ffffff;
-                padding: 20px;
-                border-radius: 12px 12px 0 0;
-            }
-            .header h1 {
-                margin: 0;
-                font-size: 24px;
-            }
-            .content {
-                padding: 20px 10px;
-                color: #333333;
-                line-height: 1.6;
-                font-size: 16px;
-            }
-            .content a.button {
-                display: inline-block;
-                margin-top: 20px;
-                padding: 12px 24px;
-                background-color: #0046be;
-                color: #ffffff;
-                text-decoration: none;
-                border-radius: 6px;
-                font-weight: bold;
-                transition: background-color 0.3s ease;
-            }
-            .content a.button:hover {
-                background-color: #0035a0;
-            }
-            .footer {
-                text-align: center;
-                padding: 20px 10px 0 10px;
-                font-size: 12px;
-                color: #999999;
-            }
-            @media only screen and (max-width: 600px) {
-                .container {
-                    padding: 20px;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Resultados de laboratorio</h1>
-            </div>
-            <div class="content">
-                <p>Hola <strong>${name}</strong>,</p>
-                <p>Te informamos que tus resultados de laboratorio ya están disponibles.</p>
-                <p>Puedes descargarlos haciendo clic en el siguiente botón:</p>
-                <p><a href="${urlResult}" target="_blank" class="button">Descargar resultados</a></p>
-                <p>Gracias por confiar en nosotros.</p>
-            </div>
-            <div class="footer">
-                <p>© 2024 Nuestra Plataforma. Todos los derechos reservados.</p>
-            </div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resultados de laboratorio</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#F4F6F8;font-family:Arial,sans-serif;color:#1B2433;">
+    <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #DDE2E8;border-radius:10px;overflow:hidden;">
+        <div style="padding:20px 28px;background:#34408C;color:#ffffff;">
+            <div style="font-size:18px;font-weight:bold;">${labName}</div>
+            <div style="margin-top:2px;font-size:13px;opacity:0.85;">Resultados de laboratorio</div>
         </div>
-    </body>
-    </html>
-    `;
+        <div style="padding:28px;font-size:15px;line-height:1.6;">
+            <p style="margin:0 0 12px;">Hola, <strong>${escapeHtml(data.name)}</strong>:</p>
+            <p style="margin:0 0 12px;">Tus resultados${data.orderCode ? ` de la orden <strong>${escapeHtml(String(data.orderCode))}</strong>` : ''} ya están disponibles.</p>
+            <p style="margin:24px 0;text-align:center;">
+                <a href="${escapeHtml(data.url)}" target="_blank" style="display:inline-block;padding:13px 26px;background:#34408C;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Ver resultados</a>
+            </p>
+            <p style="margin:0 0 12px;font-size:13px;color:#5B6676;">El enlace funciona durante ${validity(data.expiresInHours)}. Si vence, pide al laboratorio que te envíe los resultados de nuevo.</p>
+            <p style="margin:0;font-size:13px;color:#5B6676;">Los resultados deben ser interpretados por tu médico.</p>
+        </div>
+        <div style="padding:16px 28px;border-top:1px solid #DDE2E8;font-size:12px;color:#5B6676;">
+            ${labName}${contact ? `<br />${contact}` : ''}<br />
+            Este correo se envió automáticamente; no lo respondas.
+        </div>
+    </div>
+</body>
+</html>
+`;
 };

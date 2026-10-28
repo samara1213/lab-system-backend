@@ -6,6 +6,8 @@ import { Laboratory } from '../laboratory/entities/laboratory.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { ExceptionService } from '../exceptions/exception/exception.service';
 import { NotFoundException } from '@nestjs/common';
+import { IsNull } from 'typeorm';
+import { ExamClassification } from '../exam_classifications/entities/exam_classification.entity';
 
 const mockExamRepo = {
   create: jest.fn(),
@@ -22,6 +24,10 @@ const mockLabRepo = {
 const mockAllianceRepo = {
   create: jest.fn(),
   findOne: jest.fn(),
+  exists: jest.fn(),
+};
+const mockClassificationRepo = {
+  create: jest.fn((data) => data),
   exists: jest.fn(),
 };
 // el servicio real de excepciones propaga las HttpException
@@ -41,6 +47,10 @@ describe('ExamsService', () => {
         { provide: getRepositoryToken(Exam), useValue: mockExamRepo },
         { provide: getRepositoryToken(Laboratory), useValue: mockLabRepo },
         { provide: getRepositoryToken(Alliance), useValue: mockAllianceRepo },
+        {
+          provide: getRepositoryToken(ExamClassification),
+          useValue: mockClassificationRepo,
+        },
         { provide: ExceptionService, useValue: mockExceptionService },
       ],
     }).compile();
@@ -118,6 +128,51 @@ describe('ExamsService', () => {
     );
     expect(result.status).toBe(200);
     expect(result.data).toEqual(exam);
+  });
+
+  it('crea el examen con una clasificación del sistema o de su laboratorio', async () => {
+    mockClassificationRepo.exists.mockResolvedValue(true);
+    mockExamRepo.create.mockImplementation((data) => data);
+    await service.create('lab-id', {
+      exa_name: 'Examen',
+      exa_price: 10,
+      classification: 'cla-1',
+    } as any);
+    expect(mockClassificationRepo.exists).toHaveBeenCalledWith({
+      where: [
+        { cla_id: 'cla-1', cla_active: true, laboratory: IsNull() },
+        { cla_id: 'cla-1', cla_active: true, laboratory: { lab_id: 'lab-id' } },
+      ],
+    });
+    expect(mockExamRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ classification: { cla_id: 'cla-1' } }),
+    );
+  });
+
+  it('no usa una clasificación de otro laboratorio o inactiva', async () => {
+    mockClassificationRepo.exists.mockResolvedValue(false);
+    await expect(
+      service.create('lab-id', {
+        exa_name: 'Examen',
+        exa_price: 10,
+        classification: 'cla-otro-lab',
+      } as any),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(mockExamRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('al actualizar, null quita la clasificación y sin el campo no se cambia', async () => {
+    mockExamRepo.exists.mockResolvedValue(true);
+    mockExamRepo.preload.mockResolvedValue({ exa_id: 'exa-id' });
+    await service.update('exa-id', 'lab-id', { classification: null } as any);
+    expect(mockExamRepo.preload).toHaveBeenLastCalledWith(
+      expect.objectContaining({ classification: null }),
+    );
+    await service.update('exa-id', 'lab-id', { exa_name: 'X' } as any);
+    expect(mockExamRepo.preload.mock.lastCall[0]).not.toHaveProperty(
+      'classification',
+    );
+    expect(mockClassificationRepo.exists).not.toHaveBeenCalled();
   });
 
   it('debería retornar exámenes por laboratorio', async () => {

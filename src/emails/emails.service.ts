@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { templateEmailWelcom } from './templates/templateEmailWelcom';
-import { templateEmailResult } from './templates/templateEmailResult';
+import {
+  ResultEmailData,
+  templateEmailResult,
+} from './templates/templateEmailResult';
 import {
   templateEmailPasswordReset,
   templateEmailTemporaryPassword,
@@ -58,18 +61,22 @@ export class EmailsService {
   }
 
   /**
-   * Envía un correo con el enlace de descarga de los resultados de laboratorio
-   * @param to Correo del usuario
-   * @param name Nombre del usuario
-   * @param urlResult URL de descarga de resultados
+   * Envía un correo con el enlace de los resultados de laboratorio
+   * @param to correo del paciente
+   * @param data nombre del paciente, enlace, vigencia, orden y laboratorio
    */
-  async sendMailResults(to: string, name: string, urlResult: string) {
-    const htmlContentTemplate = templateEmailResult(urlResult, name);
+  async sendMailResults(to: string, data: ResultEmailData) {
+    const labName = data.laboratory?.lab_name?.trim();
     const mailOptions = {
-      from: process.env.USER_NOTIFICATION,
+      // el paciente reconoce el correo por el nombre de su laboratorio
+      from: labName
+        ? { name: labName, address: process.env.USER_NOTIFICATION }
+        : process.env.USER_NOTIFICATION,
       to,
-      subject: 'Resultados de laboratorio disponibles',
-      html: htmlContentTemplate,
+      subject: labName
+        ? `Tus resultados de laboratorio · ${labName}`
+        : 'Resultados de laboratorio disponibles',
+      html: templateEmailResult(data),
     };
 
     try {

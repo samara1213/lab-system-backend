@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Plantilla base del PDF de resultados. Formato y márgenes (arriba, derecha, abajo, izquierda) -->
+  <meta name="pdf:format" content="letter" />
+  <meta name="pdf:margin" content="236px 44px 56px 44px" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: #1B2433;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .seccion + .seccion { break-before: page; }
+    .seccion h2 {
+      margin: 0 0 14px;
+      padding: 7px 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      background: #34408C;
+      border-radius: 4px;
+    }
+    .examen { margin: 0 0 16px; break-inside: avoid; }
+    .examen h3 {
+      margin: 0 0 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #34408C;
+    }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th {
+      padding: 5px 8px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-align: left;
+      color: #5B6676;
+      background: #EEF0F7;
+      border-bottom: 1px solid #C9CEE3;
+    }
+    td {
+      padding: 5px 8px;
+      vertical-align: top;
+      border-bottom: 1px solid #E4E7EE;
+      word-break: break-word;
+    }
+    .c-param { width: 38%; }
+    .c-resultado { width: 18%; font-weight: 700; }
+    .c-unidad { width: 14%; color: #5B6676; }
+    .c-ref { width: 30%; color: #5B6676; font-size: 10.5px; }
+    tr.titulo td {
+      padding-top: 8px;
+      font-weight: 700;
+      color: #34408C;
+      background: #F7F8FB;
+    }
+    .sin-datos { margin: 4px 0 0; font-style: italic; color: #5B6676; }
+    .observaciones { margin: 8px 0 0; font-size: 10.5px; }
+    .observaciones ul { margin: 2px 0 0 16px; padding: 0; }
+    .firma {
+      display: flex;
+      justify-content: flex-end;
+      margin: 10px 0 18px;
+      break-inside: avoid;
+    }
+    .firma-caja { min-width: 200px; text-align: center; font-size: 10.5px; }
+    .firma-caja img { display: block; height: 52px; max-width: 200px; margin: 0 auto 2px; object-fit: contain; }
+    .firma-caja .linea { border-top: 1px solid #1B2433; padding-top: 3px; font-weight: 700; }
+    .firma-caja .detalle { color: #5B6676; }
+    .imagenes { margin: 8px 0 16px; text-align: center; }
+    .imagenes img { max-width: 88%; max-height: 380px; margin: 8px auto; border: 1px solid #C9CEE3; border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+<!-- pdf:header -->
+<style>
+  .h { width: 100%; padding: 22px 44px 0; font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 9.5px; line-height: 1.4; color: #1B2433; -webkit-print-color-adjust: exact; }
+  .h-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-bottom: 10px; border-bottom: 2px solid #34408C; }
+  .h-logo { height: 64px; max-width: 170px; object-fit: contain; }
+  .h-lab { text-align: right; }
+  .h-lab strong { display: block; font-size: 12.5px; color: #34408C; }
+  .h-pac { display: flex; gap: 24px; margin-top: 10px; padding: 9px 12px; background: #EEF0F7; border-radius: 6px; }
+  .h-col { flex: 1; }
+  .h-col div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-col span { color: #5B6676; }
+  .h-titulo { margin: 12px 0 0; font-size: 13px; font-weight: 700; text-align: center; color: #34408C; }
+</style>
+<div class="h">
+  <div class="h-top">
+    {{#if laboratorio.logo}}<img class="h-logo" src="{{laboratorio.logo}}" alt="" />{{else}}<div></div>{{/if}}
+    <div class="h-lab">
+      <strong>{{laboratorio.nombre}}</strong>
+      {{#if laboratorio.nit}}NIT {{laboratorio.nit}}<br />{{/if}}
+      {{laboratorio.direccion}} · Tel. {{laboratorio.telefono}}<br />
+      {{laboratorio.correo}}
+    </div>
+  </div>
+  <div class="h-pac">
+    <div class="h-col">
+      <div><span>Paciente:</span> <strong>{{paciente.nombre}}</strong></div>
+      <div><span>Documento:</span> {{paciente.tipo_documento}} {{paciente.documento}}</div>
+      <div><span>Edad:</span> {{default paciente.edad "—"}}</div>
+      <div><span>Género:</span> {{default paciente.genero "—"}}</div>
+    </div>
+    <div class="h-col">
+      <div><span>Orden:</span> <strong>{{orden.codigo}}</strong></div>
+      <div><span>Fecha de ingreso:</span> {{orden.fecha_ingreso}}</div>
+      <div><span>Fecha de generación:</span> {{orden.fecha_generacion}}</div>
+      <div><span>Teléfono:</span> {{default paciente.telefono "—"}}</div>
+    </div>
+  </div>
+  <div class="h-titulo">Resultados de laboratorio</div>
+</div>
+<!-- /pdf:header -->
+
+<!-- pdf:footer -->
+<div style="width: 100%; padding: 0 44px 14px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 8.5px; color: #5B6676; display: flex; justify-content: space-between;">
+  <span>{{laboratorio.nombre}} · Orden {{orden.codigo}}</span>
+  <span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>
+</div>
+<!-- /pdf:footer -->
+
+{{#each clasificaciones}}
+  <section class="seccion">
+    <h2>{{nombre}}</h2>
+
+    {{#each examenes}}
+      <div class="examen">
+        <h3>{{nombre}}</h3>
+        {{#if parametros.length}}
+          <table>
+            <thead>
+              <tr>
+                <th class="c-param">Parámetro</th>
+                <th class="c-resultado">Resultado</th>
+                <th class="c-unidad">Unidades</th>
+                <th class="c-ref">Referencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#each parametros}}
+                {{#if es_titulo}}
+                  <tr class="titulo"><td colspan="4">{{nombre}}</td></tr>
+                {{else}}
+                  <tr>
+                    <td class="c-param">{{nombre}}</td>
+                    <td class="c-resultado">{{resultado}}</td>
+                    <td class="c-unidad">{{unidad}}</td>
+                    <td class="c-ref">
+                      {{#if referencia}}{{referencia}}{{/if}}
+                      {{#each rangos}}<div>{{grupo}}: {{minimo}} – {{maximo}}</div>{{/each}}
+                    </td>
+                  </tr>
+                {{/if}}
+              {{/each}}
+            </tbody>
+          </table>
+        {{else}}
+          {{#unless ../mostrar_imagenes}}<p class="sin-datos">Sin resultados registrados.</p>{{/unless}}
+        {{/if}}
+
+        {{#if observaciones.length}}
+          <div class="observaciones">
+            <strong>Observaciones</strong>
+            <ul>{{#each observaciones}}<li>{{this}}</li>{{/each}}</ul>
+          </div>
+        {{/if}}
+      </div>
+
+      {{#if mostrar_firma}}
+        <div class="firma">
+          {{#if firmante}}
+            <div class="firma-caja">
+              {{#if firmante.firma}}<img src="{{firmante.firma}}" alt="Firma" />{{/if}}
+              <div class="linea">{{firmante.nombre}}</div>
+              <div class="detalle">{{firmante.cargo}}{{#if firmante.registro}} · Reg. {{firmante.registro}}{{/if}}</div>
+            </div>
+          {{else}}
+            <div class="firma-caja">
+              {{#if @root.laboratorio.firma}}<img src="{{@root.laboratorio.firma}}" alt="Firma" />{{/if}}
+              <div class="linea">{{@root.laboratorio.representante}}</div>
+            </div>
+          {{/if}}
+        </div>
+      {{/if}}
+    {{/each}}
+
+    {{#if imagenes.length}}
+      <div class="imagenes">
+        {{#each imagenes}}<img src="{{this}}" alt="Imagen adjunta" />{{/each}}
+      </div>
+    {{/if}}
+  </section>
+{{/each}}
+
+</body>
+</html>

@@ -3,6 +3,7 @@ import { ExamsService } from './exams.service';
 import { ExamsController } from './exams.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Exam } from './entities/exam.entity';
+import { ExamClassification } from '../exam_classifications/entities/exam_classification.entity';
 import { AuthModule } from '../auth/auth.module';
 import { LaboratoryModule } from '../laboratory/laboratory.module';
 import { AllianceModule } from '../alliance/alliance.module';
@@ -11,7 +12,7 @@ import { ExceptionModule } from '../exceptions/exception/exception.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Exam]),
+    TypeOrmModule.forFeature([Exam, ExamClassification]),
     AuthModule,
     LaboratoryModule,
     AllianceModule,

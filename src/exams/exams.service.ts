@@ -8,10 +8,11 @@ import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Exam } from './entities/exam.entity';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Laboratory } from '../laboratory/entities/laboratory.entity';
 import { Alliance } from '../alliance/entities/alliance.entity';
 import { ExceptionService } from '../exceptions/exception/exception.service';
+import { ExamClassification } from '../exam_classifications/entities/exam_classification.entity';
 
 @Injectable()
 export class ExamsService {
@@ -26,6 +27,9 @@ export class ExamsService {
 
     @InjectRepository(Alliance)
     private readonly allianceRepository: Repository<Alliance>,
+
+    @InjectRepository(ExamClassification)
+    private readonly classificationRepository: Repository<ExamClassification>,
 
     private readonly exceptionService: ExceptionService,
   ) {}
@@ -45,6 +49,30 @@ export class ExamsService {
     });
 
     if (!exists) throw new NotFoundException('El convenio no existe');
+  }
+
+  /**
+   * Referencia a la clasificación enviada: debe estar activa y ser del sistema o del
+   * laboratorio del usuario. undefined = no se cambia; null = se quita
+   * @param cla_id id de la clasificación
+   * @param lab_id id del laboratorio del usuario
+   */
+  private async resolveClassification(
+    cla_id: string | null | undefined,
+    lab_id: string,
+  ): Promise<ExamClassification | null | undefined> {
+    if (cla_id === undefined) return undefined;
+    if (cla_id === null) return null;
+
+    const exists = await this.classificationRepository.exists({
+      where: [
+        { cla_id, cla_active: true, laboratory: IsNull() },
+        { cla_id, cla_active: true, laboratory: { lab_id } },
+      ],
+    });
+    if (!exists) throw new NotFoundException('La clasificación no existe');
+
+    return this.classificationRepository.create({ cla_id });
   }
 
   /**
@@ -68,11 +96,17 @@ export class ExamsService {
         });
       }
 
+      const classification = await this.resolveClassification(
+        createExamDto.classification,
+        lab_id,
+      );
+
       // preparamos el objecto a guardar
       const exam = this.examRepository.create({
         ...createExamDto,
         laboratory,
         alliance,
+        classification: classification ?? null,
       });
 
       // se guarda el registro en la base de datos
@@ -106,7 +140,8 @@ export class ExamsService {
         throw new NotFoundException('No se encuentra registro con este valor');
 
       // el laboratorio del examen no se cambia desde aqui
-      const { laboratory, ...examData } = updateExamDto;
+      const { laboratory, classification: claId, ...examData } = updateExamDto;
+      const classification = await this.resolveClassification(claId, lab_id);
 
       // inicalizamos la variable de convenio
       let alliance: Alliance = null;
@@ -124,6 +159,7 @@ export class ExamsService {
         exa_id: id,
         ...examData,
         alliance,
+        ...(classification !== undefined && { classification }),
       });
 
       // Si no se encuentra el examen, lanzamos una excepción
@@ -160,6 +196,7 @@ export class ExamsService {
           laboratory: true,
           alliance: true,
           parameters: true,
+          classification: true,
         },
       });
 
@@ -189,6 +226,7 @@ export class ExamsService {
         relations: {
           alliance: true,
           parameters: true,
+          classification: true,
         },
       });
 
