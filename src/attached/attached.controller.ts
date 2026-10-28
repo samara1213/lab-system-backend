@@ -5,6 +5,8 @@ import {
   UseInterceptors,
   Param,
   ParseUUIDPipe,
+  Get,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AttachedService } from './attached.service';
@@ -19,6 +21,26 @@ import { MAX_ATTACHED_SIZE } from '../storage/file-type.helper';
 @Controller('attached')
 export class AttachedController {
   constructor(private readonly attachedService: AttachedService) {}
+  // adjuntos de una orden (sin la ruta en Storage)
+  @RequirePermission('orders:view')
+  @Get('order/:id')
+  findByOrder(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.attachedService.findByOrder(id, resolveLaboratoryId(user));
+  }
+
+  // URL temporal (10 min) para ver un adjunto
+  @RequirePermission('orders:view')
+  @Get(':id/url')
+  getViewUrl(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.attachedService.getViewUrl(id, resolveLaboratoryId(user));
+  }
+
+  @RequirePermission('orders:update')
+  @Delete(':id')
+  remove(@GetUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.attachedService.remove(id, resolveLaboratoryId(user));
+  }
+
   @RequirePermission('orders:update')
   @Post('upload/:id')
   @UseInterceptors(

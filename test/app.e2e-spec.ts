@@ -1607,6 +1607,179 @@ describe('API (e2e): aislamiento por laboratorio, permisos y seguridad', () => {
     });
   });
 
+  describe('Fase 6: listados paginados y adjuntos', () => {
+    it('busca órdenes paginadas del laboratorio con filtros y conteo por estado', async () => {
+      const all = await http
+        .get('/api/orders?limit=1')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(all.body.data).toHaveLength(1);
+      expect(all.body.meta).toMatchObject({ page: 1, limit: 1 });
+      expect(all.body.meta.total).toBeGreaterThanOrEqual(2);
+      expect(all.body.meta.pages).toBe(all.body.meta.total);
+      const statusTotal = Object.values(
+        all.body.meta.status_counts as Record<string, number>,
+      ).reduce((sum, n) => sum + n, 0);
+      expect(statusTotal).toBe(all.body.meta.total);
+      // sin la ruta del PDF; con datos del paciente y adjuntos
+      const [first] = all.body.data;
+      expect(first.ord_pdf_url).toBeUndefined();
+      expect(first).toHaveProperty('has_pdf');
+      expect(first).toHaveProperty('attachments_count');
+      expect(first.customer.cus_document_number).toBe('0000000001');
+
+      const finished = await http
+        .get('/api/orders?status=FINALIZADA')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(
+        finished.body.data.every((o: any) => o.ord_status === 'FINALIZADA'),
+      ).toBe(true);
+
+      const byDocument = await http
+        .get('/api/orders?search=0000000001')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(byDocument.body.meta.total).toBe(all.body.meta.total);
+      const byName = await http
+        .get('/api/orders?search=prueba%20paciente')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(byName.body.meta.total).toBe(all.body.meta.total);
+      const byCode = await http
+        .get(`/api/orders?search=${first.ord_code}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(byCode.body.data.map((o: any) => o.ord_id)).toContain(
+        first.ord_id,
+      );
+      const nobody = await http
+        .get('/api/orders?search=%25')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(nobody.body.meta.total).toBe(0);
+
+      const today = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'America/Bogota',
+      });
+      const todayOnly = await http
+        .get(`/api/orders?from=${today}&to=${today}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(todayOnly.body.meta.total).toBe(all.body.meta.total);
+      const future = await http
+        .get('/api/orders?from=2999-01-01')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(future.body.meta.total).toBe(0);
+
+      // el laboratorio B no ve las órdenes de A
+      const other = await http
+        .get('/api/orders?search=0000000001')
+        .set(as('recep-b'))
+        .expect(200);
+      expect(other.body.meta.total).toBe(0);
+    });
+
+    it('valida los filtros de la búsqueda', async () => {
+      for (const query of [
+        'limit=101',
+        'page=0',
+        'status=INVENTADO',
+        'from=27-10-2026',
+        'otro=1',
+      ])
+        await http.get(`/api/orders?${query}`).set(as('recep-a')).expect(400);
+      await http.get('/api/orders').set(as('consulta-a')).expect(200);
+    });
+
+    it('lista pacientes paginados con búsqueda y cantidad de órdenes', async () => {
+      const res = await http
+        .get('/api/customers?search=prueba')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(res.body.meta.total).toBe(1);
+      expect(res.body.data[0]).toMatchObject({
+        cus_id: data.A.cus_id,
+        orders_count: expect.any(Number),
+      });
+      expect(res.body.data[0].orders_count).toBeGreaterThanOrEqual(2);
+      const byDocument = await http
+        .get('/api/customers?search=0000000002')
+        .set(as('recep-a'))
+        .expect(200);
+      expect(byDocument.body.meta.total).toBe(0);
+      // consultar órdenes no da acceso al listado de pacientes
+      await http.get('/api/customers').set(as('consulta-a')).expect(403);
+    });
+
+    it('lista, muestra y elimina adjuntos solo de su laboratorio', async () => {
+      const pdf = Buffer.from('%PDF-1.7\n%prueba');
+      storage.deleteFile.mockClear();
+      await http
+        .post(`/api/attached/upload/${data.A.ord_id}`)
+        .set(as('recep-a'))
+        .attach('file', pdf, 'resultado.pdf')
+        .expect(201);
+      const firstPath = storage.uploadFile.mock.lastCall[1];
+      // al reemplazar se borra el archivo anterior
+      await http
+        .post(`/api/attached/upload/${data.A.ord_id}`)
+        .set(as('recep-a'))
+        .attach('file', pdf, 'resultado.pdf')
+        .expect(201);
+      expect(storage.deleteFile).toHaveBeenCalledWith(firstPath);
+
+      const list = await http
+        .get(`/api/attached/order/${data.A.ord_id}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(list.body.data).toEqual([
+        expect.objectContaining({ type: 'pdf' }),
+      ]);
+      expect(list.body.data[0].att_file_url).toBeUndefined();
+      const attId = list.body.data[0].att_id;
+
+      await http
+        .get(`/api/attached/order/${data.A.ord_id}`)
+        .set(as('recep-b'))
+        .expect(404);
+      await http
+        .get(`/api/attached/${attId}/url`)
+        .set(as('recep-b'))
+        .expect(404);
+      await http
+        .delete(`/api/attached/${attId}`)
+        .set(as('recep-b'))
+        .expect(404);
+      // ver no permite eliminar
+      await http
+        .delete(`/api/attached/${attId}`)
+        .set(as('consulta-a'))
+        .expect(403);
+
+      const url = await http
+        .get(`/api/attached/${attId}/url`)
+        .set(as('consulta-a'))
+        .expect(200);
+      expect(url.body.data.url).toContain('?firmado');
+      expect(storage.getSignedUrl).toHaveBeenLastCalledWith(
+        expect.stringMatching(`^${data.A.lab_id}/adjuntos/`),
+        600,
+      );
+
+      await http
+        .delete(`/api/attached/${attId}`)
+        .set(as('recep-a'))
+        .expect(200);
+      const empty = await http
+        .get(`/api/attached/order/${data.A.ord_id}`)
+        .set(as('recep-a'))
+        .expect(200);
+      expect(empty.body.data).toEqual([]);
+    });
+  });
+
   describe('cabeceras HTTP y CORS', () => {
     it('envía cabeceras de helmet y CORS solo para el frontend', async () => {
       const ok = await http

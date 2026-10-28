@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -88,5 +89,6 @@ export class ParamsExam {
   par_order: number;
 
   @ManyToOne(() => Exam, { nullable: false })
+  @Index()
   exam: Exam;
 }

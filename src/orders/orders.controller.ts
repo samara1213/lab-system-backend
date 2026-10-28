@@ -7,7 +7,10 @@ import {
   Delete,
   ParseUUIDPipe,
   Get,
+  Query,
 } from '@nestjs/common';
+import { FindOrdersDto } from './dto/find-orders.dto';
+import { QUERY_PIPE } from '../common/dto/pagination.dto';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FilterOrderDto } from './dto/filter-order.dto';
@@ -29,6 +32,13 @@ export class OrdersController {
       resolveLaboratoryId(user, createOrderDto.lab_id),
       createOrderDto,
     );
+  }
+
+  // búsqueda paginada en el servidor (Buscar órdenes)
+  @RequirePermission('orders:view')
+  @Get()
+  findAll(@GetUser() user: User, @Query(QUERY_PIPE) dto: FindOrdersDto) {
+    return this.ordersService.findPaginated(resolveLaboratoryId(user), dto);
   }
 
   @RequirePermission('orders:view')

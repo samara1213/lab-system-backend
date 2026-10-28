@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Generated,
+  Index,
   ManyToOne,
   ManyToMany,
   JoinTable,
@@ -18,6 +19,13 @@ import { Attached } from '../../attached/entities/attached.entity';
 import { decimalTransformer } from '../../common/transformers/decimal.transformer';
 
 @Entity('orders')
+// listados del laboratorio por estado y fecha (dashboard, Buscar órdenes)
+@Index('IDX_orders_lab_status_created', [
+  'laboratory',
+  'ord_status',
+  'ord_created_at',
+])
+@Index('IDX_orders_lab_created', ['laboratory', 'ord_created_at'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   ord_id: string;
@@ -64,6 +72,7 @@ export class Order {
   laboratory: Laboratory;
 
   @ManyToOne(() => Customer, (customer) => customer.orders, { nullable: false })
+  @Index()
   customer: Customer;
 
   @ManyToMany(() => Exam)

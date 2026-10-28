@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
   ManyToOne,
 } from 'typeorm';
 import { Laboratory } from '../../laboratory/entities/laboratory.entity';
@@ -26,6 +27,7 @@ export class Alliance {
   ali_nombre_contacto: string;
 
   @ManyToOne(() => Laboratory, (laboratory) => laboratory.alliances)
+  @Index()
   laboratory: Laboratory;
 
   @CreateDateColumn({ type: 'timestamp' })

@@ -77,6 +77,7 @@ export class User {
   use_estado: string;
 
   @ManyToOne(() => Laboratory, (laboratory) => laboratory.users)
+  @Index()
   laboratory: Laboratory;
 
   // Relación: un usuario solo puede tener un rol

@@ -6,7 +6,9 @@ import {
   Patch,
   Param,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
+import { PaginationDto, QUERY_PIPE } from '../common/dto/pagination.dto';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -31,10 +33,14 @@ export class CustomersController {
     );
   }
 
-  @RequirePermission('customers:view', 'orders:create')
+  // pacientes del laboratorio paginados en el servidor (?page, ?limit, ?search)
+  @RequirePermission('customers:view')
   @Get()
-  findAllByLaboratory(@GetUser() user: User) {
-    return this.customersService.findAllByCompany(resolveLaboratoryId(user));
+  findAllByLaboratory(
+    @GetUser() user: User,
+    @Query(QUERY_PIPE) dto: PaginationDto,
+  ) {
+    return this.customersService.findPaginated(resolveLaboratoryId(user), dto);
   }
 
   // compatibilidad (laboratorio en la url): quitar en la Fase 7

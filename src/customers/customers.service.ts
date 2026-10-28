@@ -11,6 +11,14 @@ import { Customer } from './entities/customer.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
 import { ExceptionService } from '../exceptions/exception/exception.service';
+import { Order } from '../orders/entities/order.entity';
+import { countByForeignKey } from '../common/helpers/count-by.helper';
+import {
+  likePattern,
+  pageOf,
+  PaginationDto,
+  paginated,
+} from '../common/dto/pagination.dto';
 
 @Injectable()
 export class CustomersService {
@@ -68,6 +76,59 @@ export class CustomersService {
         status: 200,
         data: arrayCustomers ? arrayCustomers : [],
       };
+    } catch (error) {
+      this.exceptionService.handleDBError(error);
+    }
+  }
+
+  /**
+   * Pacientes del laboratorio paginados, con la cantidad de órdenes de cada uno.
+   * Búsqueda: un número busca en el documento; un texto, cada palabra en el nombre,
+   * el documento o el correo
+   * @param lab_id id del laboratorio del usuario
+   * @param dto página y búsqueda
+   * @returns { status, data, meta }
+   */
+  async findPaginated(lab_id: string, dto: PaginationDto) {
+    try {
+      const { page, limit, skip } = pageOf(dto);
+      const query = this.customerRepository
+        .createQueryBuilder('customer')
+        .where('customer.laboratoryLabId = :lab_id', { lab_id })
+        .orderBy('customer.cus_updated_at', 'DESC')
+        .skip(skip)
+        .take(limit);
+
+      const search = dto.search?.trim();
+      if (search && /^\d+$/.test(search)) {
+        query.andWhere('customer.cus_document_number LIKE :document', {
+          document: likePattern(search),
+        });
+      } else if (search) {
+        search.split(/\s+/).forEach((word, index) => {
+          query.andWhere(
+            `(concat_ws(' ', customer.cus_first_name, customer.cus_second_name, customer.cus_first_lastname, customer.cus_second_lastname) ILIKE :word${index} OR customer.cus_document_number ILIKE :word${index} OR customer.cus_email ILIKE :word${index})`,
+            { [`word${index}`]: likePattern(word) },
+          );
+        });
+      }
+
+      const [customers, total] = await query.getManyAndCount();
+      const orders = await countByForeignKey(
+        this.customerRepository.manager,
+        Order,
+        'customerCusId',
+        customers.map((customer) => customer.cus_id),
+      );
+      return paginated(
+        customers.map((customer) => ({
+          ...customer,
+          orders_count: orders.get(customer.cus_id) ?? 0,
+        })),
+        total,
+        page,
+        limit,
+      );
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }

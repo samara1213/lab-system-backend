@@ -6,7 +6,11 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
+import { FindOrdersDto } from './dto/find-orders.dto';
+import { Attached } from '../attached/entities/attached.entity';
+import { countByForeignKey } from '../common/helpers/count-by.helper';
+import { likePattern, pageOf, paginated } from '../common/dto/pagination.dto';
 import { FilterOrderDto } from './dto/filter-order.dto';
 import { Customer } from '../customers/entities/customer.entity';
 import { Exam } from '../exams/entities/exam.entity';
@@ -149,6 +153,120 @@ export class OrdersService {
         status: 200,
         data: order,
       };
+    } catch (error) {
+      this.exceptionService.handleDBError(error);
+    }
+  }
+
+  /**
+   * Órdenes del laboratorio paginadas en el servidor, con búsqueda (número de orden,
+   * documento o nombre del paciente), estados y rango de fechas de ingreso (días en
+   * Colombia). meta.status_counts trae cuántas hay en cada estado con los demás filtros
+   * @param lab_id id del laboratorio del usuario
+   * @param dto filtros y página
+   * @returns { status, data, meta }
+   */
+  async findPaginated(lab_id: string, dto: FindOrdersDto) {
+    try {
+      const { page, limit, skip } = pageOf(dto);
+
+      // filtros comunes al listado y al conteo por estado
+      const filtered = () => {
+        const query = this.orderRepository
+          .createQueryBuilder('order')
+          .innerJoin('order.customer', 'customer')
+          .where('order.laboratoryLabId = :lab_id', { lab_id });
+
+        const search = dto.search?.trim();
+        if (search) {
+          if (/^\d+$/.test(search)) {
+            // un número: orden exacta o documento que lo contiene
+            const code = Number(search);
+            query.andWhere(
+              new Brackets((where) => {
+                where.where('customer.cus_document_number LIKE :document', {
+                  document: likePattern(search),
+                });
+                if (code <= 2_147_483_647)
+                  where.orWhere('order.ord_code = :code', { code });
+              }),
+            );
+          } else {
+            // cada palabra debe estar en el nombre o en el documento
+            search.split(/\s+/).forEach((word, index) => {
+              query.andWhere(
+                `(concat_ws(' ', customer.cus_first_name, customer.cus_second_name, customer.cus_first_lastname, customer.cus_second_lastname) ILIKE :word${index} OR customer.cus_document_number ILIKE :word${index})`,
+                { [`word${index}`]: likePattern(word) },
+              );
+            });
+          }
+        }
+        // ord_created_at es hora local de la base: los límites se pasan del día en Colombia a esa zona
+        if (dto.from)
+          query.andWhere(
+            `order.ord_created_at >= (CAST(:from AS date)::timestamp AT TIME ZONE 'America/Bogota') AT TIME ZONE current_setting('TimeZone')`,
+            { from: dto.from },
+          );
+        if (dto.to)
+          query.andWhere(
+            `order.ord_created_at < ((CAST(:to AS date) + 1)::timestamp AT TIME ZONE 'America/Bogota') AT TIME ZONE current_setting('TimeZone')`,
+            { to: dto.to },
+          );
+        return query;
+      };
+
+      const listQuery = filtered()
+        .addSelect([
+          'customer.cus_id',
+          'customer.cus_document_type',
+          'customer.cus_document_number',
+          'customer.cus_first_name',
+          'customer.cus_second_name',
+          'customer.cus_first_lastname',
+          'customer.cus_second_lastname',
+          'customer.cus_email',
+        ])
+        .orderBy('order.ord_created_at', 'DESC')
+        .addOrderBy('order.ord_code', 'DESC')
+        .skip(skip)
+        .take(limit);
+      if (dto.status?.length)
+        listQuery.andWhere('order.ord_status IN (:...statuses)', {
+          statuses: dto.status,
+        });
+
+      const [[orders, total], counts] = await Promise.all([
+        listQuery.getManyAndCount(),
+        filtered()
+          .select('order.ord_status', 'status')
+          .addSelect('COUNT(*)::int', 'total')
+          .groupBy('order.ord_status')
+          .getRawMany(),
+      ]);
+      const attachments = await countByForeignKey(
+        this.orderRepository.manager,
+        Attached,
+        'orderOrdId',
+        orders.map((order) => order.ord_id),
+      );
+
+      return paginated(
+        orders.map(({ ord_pdf_url, customer, ...order }) => ({
+          ...order,
+          attachments_count: attachments.get(order.ord_id) ?? 0,
+          // la ruta del PDF no sale del servidor: el front pide una URL firmada
+          has_pdf: Boolean(ord_pdf_url),
+          customer: { ...customer, has_email: Boolean(customer?.cus_email) },
+        })),
+        total,
+        page,
+        limit,
+        {
+          status_counts: Object.fromEntries(
+            counts.map((row) => [row.status, row.total]),
+          ),
+        },
+      );
     } catch (error) {
       this.exceptionService.handleDBError(error);
     }

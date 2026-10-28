@@ -6,6 +6,7 @@ import { PdfModule } from '../pdf/pdf.module';
 import { ExceptionModule } from '../exceptions/exception/exception.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Attached } from './entities/attached.entity';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   controllers: [AttachedController],
@@ -13,6 +14,7 @@ import { Attached } from './entities/attached.entity';
     TypeOrmModule.forFeature([Attached]),
     AuthModule,
     PdfModule,
+    StorageModule,
     ExceptionModule,
   ],
   providers: [AttachedService],

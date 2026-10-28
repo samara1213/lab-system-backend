@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
   ManyToOne,
 } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
@@ -19,5 +20,6 @@ export class Attached {
   att_created_at: Date;
 
   @ManyToOne(() => Order, (order) => order.attachedFiles, { nullable: false })
+  @Index()
   order: Order;
 }
